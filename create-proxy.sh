@@ -5,7 +5,7 @@
 ############################################################
 
 # Check if the script is running as root
-if [ `whoami` != root ]; then
+if [ "$(id -u)" -ne 0 ]; then
     echo "ERROR: You need to run the script as root or add sudo before the command."
     exit 1
 fi
@@ -36,6 +36,12 @@ echo "Selected IP Prefix: $IP_PREFIX"
 
 # Add a comment in the log file to indicate the start of this session
 echo -e "\n# Proxy Session on $(date)" >> "$LOG_FILE"
+
+# Function to generate a random string of specified length
+generate_random_string() {
+    local length=$1
+    tr -dc A-Za-z0-9 </dev/urandom | head -c $length
+}
 
 # Function to test if the proxy can access the website
 function test_proxy {
