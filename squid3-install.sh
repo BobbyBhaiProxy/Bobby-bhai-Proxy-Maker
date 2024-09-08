@@ -22,7 +22,8 @@ chmod 755 /usr/bin/create-proxy
 
 # Ensure squid-uninstall script is available
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
-chmod 755 /usr/bin/squid-uninstall
+sudo chmod +x /usr/bin/squid-uninstall
+
 
 # Check if Squid is already installed
 if [[ -d /etc/squid/ ]]; then
