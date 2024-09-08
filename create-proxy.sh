@@ -29,7 +29,7 @@ if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ $USER_COUNT -le 0 ]; then
 fi
 
 # Calculate the maximum number of attempts for testing proxies
-MAX_ATTEMPTS=$((USER_COUNT * 5))
+MAX_ATTEMPTS=$((USER_COUNT * 2))
 
 # Prompt for IP series for spoofing the X-Forwarded-For header
 echo "Enter the first two segments of your desired IP (e.g., 172.232, 103.15):"
@@ -66,7 +66,7 @@ function test_proxy {
     fi
 }
 
-# Function to add a user to the Squid password file
+# Function to add user to the password file
 add_user_to_password_file() {
     local USERNAME=$1
     local PASSWORD=$2
