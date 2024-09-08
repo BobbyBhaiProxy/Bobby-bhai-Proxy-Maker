@@ -11,9 +11,11 @@ if [ "$(whoami)" != "root" ]; then
     exit 1
 fi
 
-# Function to check if Squid is already installed
+# Function to check if Squid is installed
 check_squid_installed() {
-    if command -v squid >/dev/null 2>&1; then
+    if systemctl status squid >/dev/null 2>&1; then
+        return 0
+    elif [ -x "$(command -v squid)" ]; then
         return 0
     else
         return 1
@@ -70,11 +72,11 @@ generate_random_string() {
 
 # Ask how many proxy users to create
 echo "How many proxies do you want to create?"
-read USER_COUNT
+read -r USER_COUNT
 
 # Validate the user count
 if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ $USER_COUNT -le 0 ]]; then
-    echo "Invalid number of users. Exiting."
+    echo "Invalid number. Please enter a valid number of proxies."
     exit 1
 fi
 
@@ -126,8 +128,14 @@ for ((i=1;i<=USER_COUNT;i++)); do
 
     # Generate IP address by combining the selected prefix with a random last octet
     OCTET=$(shuf -i 1-254 -n 1)
-    SPOOFED_IP="${SELECTED_IP_PREFIX}.$OCTET"
 
+    # Verify if IP generation is working correctly
+    if [ -z "$OCTET" ]; then
+        echo "Failed to generate an IP octet for user $i"
+        continue  # Skip to the next user if IP generation fails
+    fi
+
+    SPOOFED_IP="${SELECTED_IP_PREFIX}.$OCTET"
     echo "Generated Spoofed IP: $SPOOFED_IP for User $USERNAME"
 
     # Add user to Squid password file
@@ -158,6 +166,15 @@ if [ $? -eq 0 ]; then
 else
     echo "ERROR: Failed to restart Squid service."
     exit 1
+fi
+
+# Create symbolic link for add-proxy command
+if [ -f "/usr/local/bin/add-proxy" ]; then
+    echo "add-proxy command already exists."
+else
+    ln -s "$(pwd)/$0" /usr/local/bin/add-proxy
+    chmod +x /usr/local/bin/add-proxy
+    echo "You can now use 'add-proxy' to run this script in the future."
 fi
 
 # Display the log file location
