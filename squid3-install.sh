@@ -111,6 +111,12 @@ LOG_FILE="/root/proxy_users_$(date +%F_%T).txt"
 # Create a new log file or append if it exists
 touch "$LOG_FILE"
 
+# Ensure /etc/squid/passwd exists, or create it
+if [ ! -f /etc/squid/passwd ]; then
+    echo "Creating /etc/squid/passwd file for the first time."
+    touch /etc/squid/passwd
+fi
+
 # Start creating proxy users
 for ((i=1;i<=USER_COUNT;i++)); do
     USERNAME=$(generate_random_string 8)
@@ -125,13 +131,7 @@ for ((i=1;i<=USER_COUNT;i++)); do
     echo "Generated Spoofed IP: $SPOOFED_IP for User $USERNAME"
 
     # Add user to Squid password file
-    if [ ! -f /etc/squid/passwd ]; then
-        echo "Creating new /etc/squid/passwd file"
-        htpasswd -cb /etc/squid/passwd $USERNAME $PASSWORD
-    else
-        echo "Adding user to /etc/squid/passwd"
-        htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
-    fi
+    htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
 
     # Append user and IP details to Squid config
     echo "Adding proxy user $USERNAME and IP $SPOOFED_IP to squid.conf"
@@ -141,6 +141,14 @@ for ((i=1;i<=USER_COUNT;i++)); do
     echo "$SPOOFED_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
     echo "Proxy details logged for $USERNAME"
 done
+
+# Test Squid configuration before restarting
+echo "Testing Squid configuration before applying changes..."
+squid -k parse
+if [ $? -ne 0 ]; then
+    echo "ERROR: Squid configuration test failed. Please check squid.conf for errors."
+    exit 1
+fi
 
 # Restart Squid service
 echo "Restarting Squid to apply changes..."
