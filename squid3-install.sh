@@ -22,7 +22,7 @@ chmod 755 /usr/bin/create-proxy
 
 # Ensure squid-uninstall script is available
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
-sudo chmod +x /usr/bin/squid-uninstall
+chmod +x /usr/bin/squid-uninstall
 
 
 # Check if Squid is already installed
@@ -50,7 +50,7 @@ if [ "$SOK_OS" == "ubuntu2404" ] || [ "$SOK_OS" == "ubuntu2204" ] || [ "$SOK_OS"
     apt update > /dev/null 2>&1
     apt -y install apache2-utils squid > /dev/null 2>&1
     touch /etc/squid/passwd
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/ubuntu2204.conf
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/ubuntu-2204.conf
     iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
     systemctl enable squid > /dev/null 2>&1
     systemctl restart squid > /dev/null 2>&1
