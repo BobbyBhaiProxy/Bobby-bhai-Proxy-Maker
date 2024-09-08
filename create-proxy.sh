@@ -66,6 +66,20 @@ function test_proxy {
     fi
 }
 
+# Function to add a user to the Squid password file
+add_user_to_password_file() {
+    local USERNAME=$1
+    local PASSWORD=$2
+
+    if [ ! -f /etc/squid/passwd ]; then
+        echo "Creating new /etc/squid/passwd file"
+        htpasswd -cb /etc/squid/passwd $USERNAME $PASSWORD
+    else
+        echo "Adding user to /etc/squid/passwd"
+        htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
+    fi
+}
+
 # Function to create and test proxies
 create_and_test_proxies() {
     local count=$1
@@ -90,13 +104,7 @@ create_and_test_proxies() {
             echo "Generated Spoofed IP: $SPOOFED_IP for User $USERNAME"
 
             # Add user to Squid password file
-            if [ ! -f /etc/squid/passwd ]; then
-                echo "Creating new /etc/squid/passwd file"
-                htpasswd -cb /etc/squid/passwd $USERNAME $PASSWORD
-            else
-                echo "Adding user to /etc/squid/passwd"
-                htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
-            fi
+            add_user_to_password_file $USERNAME $PASSWORD
 
             # Append user and IP details to the Squid config for X-Forwarded-For spoofing
             echo -e "acl user$i proxy_auth $USERNAME" >> /etc/squid/squid.conf
