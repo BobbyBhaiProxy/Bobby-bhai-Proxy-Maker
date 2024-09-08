@@ -1,181 +1,83 @@
 #!/bin/bash
 
 ############################################################
-# Squid Proxy Installer with Enhanced Proxy Generation and Squid Detection
-# Author: Bobby Bhai
+# Bobby Bhai Proxy Maker
+# Author: Your Name
+# Github: https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker
 ############################################################
 
-# Ensure the script is being run as root
-if [ "$(whoami)" != "root" ]; then
+# Check if the script is running as root
+if [ `whoami` != root ]; then
     echo "ERROR: You need to run the script as root or add sudo before the command."
     exit 1
 fi
 
-# Function to check if Squid is installed
-check_squid_installed() {
-    if systemctl status squid >/dev/null 2>&1; then
-        return 0
-    elif [ -x "$(command -v squid)" ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Function to detect OS and install Squid
-install_squid() {
-    echo "Detecting OS..."
-
-    if grep -q "Ubuntu" /etc/os-release; then
-        echo "Installing Squid on Ubuntu..."
-        sudo apt update > /dev/null 2>&1
-        sudo apt -y install squid > /dev/null 2>&1
-    elif grep -q "Debian" /etc/os-release; then
-        echo "Installing Squid on Debian..."
-        sudo apt update > /dev/null 2>&1
-        sudo apt -y install squid > /dev/null 2>&1
-    elif grep -q "CentOS" /etc/os-release; then
-        echo "Installing Squid on CentOS..."
-        sudo yum install squid -y > /dev/null 2>&1
-    elif grep -q "AlmaLinux" /etc/os-release; then
-        echo "Installing Squid on AlmaLinux..."
-        sudo yum install squid -y > /dev/null 2>&1
-    else
-        echo "OS not supported."
-        exit 1
-    fi
-
-    echo "Squid installation successful."
-    systemctl enable squid
-    systemctl restart squid
-}
+# Ensure find-os script is available
+/usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
+chmod 755 /usr/bin/sok-find-os
 
 # Check if Squid is already installed
-if check_squid_installed; then
-    echo "Squid is already installed."
-    # Ask the user if they want to proceed with proxy creation
-    read -p "Do you want to create proxies? (Yes [y] / No [n]): " PROXY_CHOICE
-    if [[ "$PROXY_CHOICE" != "y" ]]; then
-        echo "Exiting script."
-        exit 0
-    fi
-else
-    echo "Squid not found, installing..."
-    install_squid
-fi
-
-# Function to generate random usernames and passwords
-generate_random_string() {
-    local length=$1
-    echo $(tr -dc A-Za-z0-9 </dev/urandom | head -c ${length} ; echo '')
-}
-
-# Ask how many proxy users to create
-echo "How many proxies do you want to create?"
-read -r USER_COUNT
-
-# Validate the user count
-if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ $USER_COUNT -le 0 ]]; then
-    echo "Invalid number. Please enter a valid number of proxies."
+if [[ -d /etc/squid/ ]]; then
+    echo -e "\nSquid Proxy already installed.\n"
+    echo -e "If you want to reinstall, first uninstall squid proxy by running the following command:\n"
+    echo -e "sudo squid-uninstall\n"
     exit 1
 fi
 
-# IP Series Selection for X-Forwarded-For header
-echo "Select an IP series for spoofing the X-Forwarded-For header:"
-echo "1. 103.15"
-echo "2. 172.232"
-echo "3. 139.84"
-echo "4. 157.33"
-echo "5. 103.157"
-echo "6. 103.18"
-echo "7. 103.161"
-echo "8. 210.89"
-read -p "Enter the number corresponding to your choice: " IP_CHOICE
+# Detect OS
+SOK_OS=$(/usr/bin/sok-find-os)
 
-# Set IP Prefix based on selection
-case $IP_CHOICE in
-    1) SELECTED_IP_PREFIX="103.15" ;;
-    2) SELECTED_IP_PREFIX="172.232" ;;
-    3) SELECTED_IP_PREFIX="139.84" ;;
-    4) SELECTED_IP_PREFIX="157.33" ;;
-    5) SELECTED_IP_PREFIX="103.157" ;;
-    6) SELECTED_IP_PREFIX="103.18" ;;
-    7) SELECTED_IP_PREFIX="103.161" ;;
-    8) SELECTED_IP_PREFIX="210.89" ;;
-    *) echo "Invalid selection"; exit 1 ;;
-esac
+# Check if the OS is supported
+if [ $SOK_OS == "ERROR" ]; then
+    cat /etc/*release
+    echo -e "\nOS NOT SUPPORTED.\n"
+    exit 1;
+fi
 
-echo "Selected IP Prefix: $SELECTED_IP_PREFIX"
+# Proceed with Squid installation based on detected OS
+echo -e "Installing Squid on ${SOK_OS}, please wait....\n"
 
-# Define the log file path in /root/ for easy access
-LOG_FILE="/root/proxy_users_$(date +%F_%T).txt"
-
-# Create a new log file or append if it exists
-touch "$LOG_FILE"
-
-# Ensure /etc/squid/passwd exists, or create it
-if [ ! -f /etc/squid/passwd ]; then
-    echo "Creating /etc/squid/passwd file for the first time."
+if [ "$SOK_OS" == "ubuntu2404" ] || [ "$SOK_OS" == "ubuntu2204" ] || [ "$SOK_OS" == "ubuntu2004" ]; then
+    apt update > /dev/null 2>&1
+    apt -y install apache2-utils squid > /dev/null 2>&1
     touch /etc/squid/passwd
-fi
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/ubuntu2204.conf
+    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
+    systemctl enable squid > /dev/null 2>&1
+    systemctl restart squid > /dev/null 2>&1
 
-# Start creating proxy users
-for ((i=1;i<=USER_COUNT;i++)); do
-    USERNAME=$(generate_random_string 8)
-    PASSWORD=$(generate_random_string 12)
+elif [ "$SOK_OS" == "debian10" ] || [ "$SOK_OS" == "debian11" ] || [ "$SOK_OS" == "debian12" ]; then
+    apt update > /dev/null 2>&1
+    apt -y install apache2-utils squid > /dev/null 2>&1
+    touch /etc/squid/passwd
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/debian12.conf
+    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
+    systemctl enable squid > /dev/null 2>&1
+    systemctl restart squid > /dev/null 2>&1
 
-    echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
+elif [ "$SOK_OS" == "centos7" ] || [ "$SOK_OS" == "centos8" ] || [ "$SOK_OS" == "centos9" ] || [ "$SOK_OS" == "almalinux8" ] || [ "$SOK_OS" == "almalinux9" ]; then
+    yum install squid httpd-tools wget -y > /dev/null 2>&1
+    mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-centos7.conf
+    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
+    systemctl enable squid > /dev/null 2>&1
+    systemctl restart squid > /dev/null 2>&1
 
-    # Generate IP address by combining the selected prefix with a random last octet
-    OCTET=$(shuf -i 1-254 -n 1)
-
-    # Verify if IP generation is working correctly
-    if [ -z "$OCTET" ]; then
-        echo "Failed to generate an IP octet for user $i"
-        continue  # Skip to the next user if IP generation fails
+    if [ -f /usr/bin/firewall-cmd ]; then
+        firewall-cmd --zone=public --permanent --add-port=3128/tcp > /dev/null 2>&1
+        firewall-cmd --reload > /dev/null 2>&1
     fi
-
-    SPOOFED_IP="${SELECTED_IP_PREFIX}.$OCTET"
-    echo "Generated Spoofed IP: $SPOOFED_IP for User $USERNAME"
-
-    # Add user to Squid password file
-    htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
-
-    # Append user and IP details to Squid config
-    echo "Adding proxy user $USERNAME and IP $SPOOFED_IP to squid.conf"
-    echo -e "acl user$i proxy_auth $USERNAME\nheader_access X-Forwarded-For allow user$i\nrequest_header_add X-Forwarded-For \"$SPOOFED_IP\" user$i" >> /etc/squid/squid.conf
-
-    # Log generated proxy details in the log file
-    echo "$SPOOFED_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-    echo "Proxy details logged for $USERNAME"
-done
-
-# Test Squid configuration before restarting
-echo "Testing Squid configuration before applying changes..."
-squid -k parse
-if [ $? -ne 0 ]; then
-    echo "ERROR: Squid configuration test failed. Please check squid.conf for errors."
+else
+    echo -e "OS NOT SUPPORTED by this script!"
     exit 1
 fi
 
-# Restart Squid service
-echo "Restarting Squid to apply changes..."
-systemctl restart squid
-if [ $? -eq 0 ]; then
-    echo "Squid restarted successfully."
-else
-    echo "ERROR: Failed to restart Squid service."
-    exit 1
-fi
+# Final message and logging
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
-# Create symbolic link for add-proxy command
-if [ -f "/usr/local/bin/add-proxy" ]; then
-    echo "add-proxy command already exists."
-else
-    ln -s "$(pwd)/$0" /usr/local/bin/add-proxy
-    chmod +x /usr/local/bin/add-proxy
-    echo "You can now use 'add-proxy' to run this script in the future."
-fi
-
-# Display the log file location
-echo -e "\033[32mProxy users have been created and saved to $LOG_FILE\033[0m"
+echo -e "${NC}"
+echo -e "${GREEN}Squid Proxy successfully installed on ${SOK_OS}.${NC}"
+echo -e "${CYAN}To create proxy users, run command: create-proxy${NC}"
+echo -e "${NC}"
