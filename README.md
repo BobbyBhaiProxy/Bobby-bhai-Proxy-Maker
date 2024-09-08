@@ -1,87 +1,128 @@
 
 # Bobby Bhai Squid Proxy Installer (Updated Version)
 
-https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git
+[GitHub Repository](https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git)
 
-This updated version of Bobby Bhai's Squid Proxy Installer auto-installs Squid 3 proxy on the following Linux OS distributions:
+This updated version of Bobby Bhai's Squid Proxy Installer automates the installation and configuration of Squid 3 proxy on the following Linux distributions:
 
-* Ubuntu 24.04, 22.04, 20.04, 18.04 
-* Debian 12, 11, 10, 9, 8
-* CentOS 8
-* CentOS Stream 9, 8
-* AlmaLinux 9, 8
+- **Ubuntu**: 24.04, 22.04, 20.04, 18.04
+- **Debian**: 12, 11, 10, 9, 8
+- **CentOS**: 8, Stream 9, 8
+- **AlmaLinux**: 9, 8
 
-## Install Squid
+---
 
-To install, run the script:
+## Installation Instructions
 
-```
+To install Squid Proxy, run the following commands:
+
+```bash
 wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid3-install.sh
 sudo bash squid3-install.sh
 ```
 
 This script will:
-- Detect your operating system.
-- Install Squid if it’s not already installed.
-- Prompt you to create proxies after installation.
+- Automatically detect your OS.
+- Install Squid Proxy (if not already installed).
+- Set up necessary configuration files.
+- Prompt you to create proxy users after installation.
+
+---
 
 ## Create Proxy Users
 
-Once Squid is installed, you can create users by running:
+Once Squid is installed, you can create proxy users using the **create-proxy** script:
 
-```
-sudo ./add_proxy.sh
+```bash
+sudo create-proxy
 ```
 
-OR manually by running:
+The script will:
+- Prompt you to enter the number of proxies you want to create.
+- Ask for the first two segments of the IP address.
+- Automatically generate usernames, passwords, and complete IP addresses.
+- Log the proxy details (IP, Port, Username, Password) to a file for reference.
 
-```
+### Manually Create Users (Optional)
+
+If you prefer, you can manually create proxy users with the following command:
+
+```bash
 sudo /usr/bin/htpasswd -b -c /etc/squid/passwd USERNAME_HERE PASSWORD_HERE
 ```
 
-To update the password for an existing user, run:
+To update the password for an existing user, use:
 
-```
+```bash
 sudo /usr/bin/htpasswd /etc/squid/passwd USERNAME_HERE
 ```
 
-Replace `USERNAME_HERE` and `PASSWORD_HERE` with your desired username and password.
+After creating or updating users, reload Squid Proxy to apply the changes:
 
-Once users are created or updated, reload Squid Proxy:
-
-```
+```bash
 sudo systemctl reload squid
 ```
 
-## Configure Multiple IP Addresses
+---
 
-NOTE: This is only needed if you have more than one IP on your server.
+## Multiple IP Address Configuration
 
-After adding additional IPs to your server, configure Squid to use them by running the following command:
+> **Note**: Only needed if you have more than one IP address on your server.
 
-```
+After adding additional IPs to your server, you can configure Squid to use them by running the following script:
+
+```bash
 wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-conf-ip.sh
 sudo bash squid-conf-ip.sh
 ```
 
-This will set up multiple IP addresses for use in the Squid proxy.
+This will configure Squid to handle multiple IP addresses for use in the proxy server.
+
+---
 
 ## Change Squid Proxy Port
 
-The default Squid Proxy port is `3128`. To change the Squid port, modify the Squid configuration file (`squid.conf`) as needed.
+The default Squid Proxy port is **3128**. If you wish to change the port, modify the Squid configuration file (`/etc/squid/squid.conf`):
+
+1. Open the file in a text editor:
+   ```bash
+   sudo nano /etc/squid/squid.conf
+   ```
+
+2. Find the line:
+   ```bash
+   http_port 3128
+   ```
+
+3. Change `3128` to your desired port number and save the file.
+
+4. Reload Squid to apply the new port:
+   ```bash
+   sudo systemctl reload squid
+   ```
+
+---
 
 ## Uninstall Squid
 
-To completely uninstall Squid from your system, run:
+To completely uninstall Squid Proxy and remove all associated configuration files, run:
 
-```
+```bash
 sudo ./squid-uninstall.sh
 ```
 
-This script will remove Squid and all associated configuration files.
+This script will:
+- Remove Squid Proxy and its related packages.
+- Clean up configuration files and directories.
 
-## Support
+---
 
-For assistance or more details, please visit the GitHub repository:
+## Troubleshooting
 
-https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git
+If you encounter issues or need further assistance, check the logs in `/var/log/squid/` or reload Squid Proxy for configuration issues:
+
+```bash
+sudo systemctl reload squid
+```
+
+For support or more details, please visit the [GitHub repository](https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git).
