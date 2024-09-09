@@ -41,7 +41,7 @@ echo "How many proxies do you want to create? (Limit: 50 total)"
 read USER_COUNT
 
 # Validate the user count
-if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ $USER_COUNT -le 0 ]]; then
+if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ "$USER_COUNT" -le 0 ]; then
     echo "Invalid number of proxies. Exiting."
     exit 1
 fi
@@ -92,10 +92,10 @@ add_user_to_password_file() {
 
     if [ ! -f /etc/squid/passwd ]; then
         echo "Creating new /etc/squid/passwd file"
-        htpasswd -cb /etc/squid/passwd $USERNAME $PASSWORD
+        htpasswd -cb /etc/squid/passwd "$USERNAME" "$PASSWORD"
     else
         echo "Adding user to /etc/squid/passwd"
-        htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
+        htpasswd -b /etc/squid/passwd "$USERNAME" "$PASSWORD"
     fi
 }
 
@@ -133,13 +133,6 @@ create_proxies() {
 
 # Create proxies first
 proxies=$(create_proxies $USER_COUNT)
-
-# Restart Squid to apply the new proxies
-echo "Restarting Squid to apply changes..."
-if ! systemctl restart squid; then
-    echo "ERROR: Failed to restart Squid service."
-    exit 1
-fi
 
 # Test each proxy after all are created
 working_proxies=()
