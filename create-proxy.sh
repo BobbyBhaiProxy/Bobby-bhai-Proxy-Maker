@@ -8,11 +8,17 @@
 
 # Check if the script is running as root
 if [ `whoami` != root ]; then
-    echo "ERROR: You need to run the script as root or add sudo before the command."
+	echo "ERROR: You need to run the script as root or add sudo before command."
+	exit 1
+fi
+
+# Check if htpasswd is installed
+if [ ! -f /usr/bin/htpasswd ]; then
+    echo "ERROR: htpasswd not found. Please install apache2-utils or httpd-tools."
     exit 1
 fi
 
-# Log file for proxy details
+# Log file location
 LOG_FILE="/root/ProxyList.txt"
 
 # Check if the log file exists, if not create it
@@ -30,79 +36,62 @@ else
     echo "Detected Server IP: $SERVER_IP"
 fi
 
-# Prompt for the number of proxies
-echo "How many proxies do you want to create? (Limit: 50 total)"
-read USER_COUNT
-
-# Validate the user count
-if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ "$USER_COUNT" -le 0 ]; then
-    echo "Invalid number of proxies. Exiting."
-    exit 1
-fi
-
-# Ensure find-os script is available
-/usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
-chmod 755 /usr/bin/sok-find-os
-
-# Ensure create-proxy script is available
-/usr/bin/wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
-chmod 755 /usr/bin/create-proxy
-
-# Add a comment in the log file to indicate the start of this session
-echo -e "\n# Proxy Session on $(date)" >> "$LOG_FILE"
-
 # Function to generate a random string of specified length
 generate_random_string() {
     local length=$1
     tr -dc A-Za-z0-9 </dev/urandom | head -c $length
 }
 
-# Function to add user to password file
-add_user_to_password_file() {
-    local USERNAME=$1
-    local PASSWORD=$2
+# Ask the user to select mode: Manual (M) or Automatic (A)
+read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
 
-    if [ ! -f /etc/squid/passwd ]; then
-        echo "Creating new /etc/squid/passwd file"
-        htpasswd -cb /etc/squid/passwd "$USERNAME" "$PASSWORD"
+if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
+    # Manual input mode
+    read -p "Enter Proxy username: " USERNAME
+    read -p "Enter Proxy password: " PASSWORD
+
+    # Check if password file exists and add user
+    if [ -f /etc/squid/passwd ]; then
+        /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
     else
-        echo "Adding user to /etc/squid/passwd"
-        htpasswd -b /etc/squid/passwd "$USERNAME" "$PASSWORD"
+        /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
-}
 
-# Function to create proxies and save them to the log file
-create_proxies() {
-    local count=$1
-    local proxies=()
+    # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
+    echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
 
-    echo "Creating $count proxies..."
+    echo "Proxy created and saved to $LOG_FILE:"
+    echo "$SERVER_IP:3128:$USERNAME:$PASSWORD"
 
-    for ((i=1; i<=count; i++)); do
+elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
+    # Automatic mode
+    read -p "How many proxies do you want to create? " proxy_count
+
+    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
+        echo "Invalid number of proxies. Exiting."
+        exit 1
+    fi
+
+    for ((i=1; i<=proxy_count; i++)); do
+        # Generate a random username and password
         USERNAME=$(generate_random_string 8)
-
-        # Generate a password
         PASSWORD=$(generate_random_string 12)
 
         echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
 
-        # Add user to Squid password file
-        add_user_to_password_file "$USERNAME" "$PASSWORD"
+        # Check if password file exists and add user
+        if [ -f /etc/squid/passwd ]; then
+            /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
+        else
+            /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
+        fi
 
-        # Format proxy as IP:PORT:USERNAME:PASSWORD
-        proxy="$SERVER_IP:3128:$USERNAME:$PASSWORD"
-
-        # Append proxy to the log file
-        echo "$proxy" >> "$LOG_FILE"
-
-        # Store proxy in the array (if needed for later processing)
-        proxies+=("$proxy")
+        # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
+        echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
     done
 
-    echo "${proxies[@]}"
-}
-
-# Create and log the proxies
-create_proxies $USER_COUNT
-
-echo -e "\033[32mProxy creation complete. All proxies are saved to $LOG_FILE\033[0m"
+    echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
+else
+    echo "Invalid mode selected. Exiting."
+    exit 1
+fi
