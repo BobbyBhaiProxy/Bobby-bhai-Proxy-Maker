@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Automatic Proxy Creation with Password Validation and Testing
+# Automatic Proxy Creation with Password Confirmation and Testing
 ############################################################
 
 # Check if the script is running as root
@@ -69,17 +69,18 @@ test_proxy() {
     local PASSWORD=$3
 
     # Display testing message
-    echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD  Testing...."
+    echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing...."
 
     # Use curl to test if the proxy can access the target website
     HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
 
     if [ "$HTTP_STATUS" -eq 200 ]; then
-        # Show "working" in green when the proxy is successful
-        echo -e " \033[32mworking\033[0m"
+        # Show "Working" in green when the proxy is successful
+        echo -e " \033[32mWorking\033[0m"
         return 0  # Success
     else
-        echo " Proxy is not working."
+        # Show "Not working" in red when the proxy fails
+        echo -e " \033[31mNot working\033[0m"
         return 1  # Failure
     fi
 }
