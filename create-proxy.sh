@@ -1,9 +1,13 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker
-# Author: Your Name
-# Github: https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker
+# Squid Proxy Installer
+# Author: Yujin Boby
+# Email: admin@serverOk.in
+# Github: https://github.com/serverok/squid-proxy-installer/
+# Web: https://serverok.in/squid
+# If you need professional assistance, reach out to
+# https://serverok.in/contact
 ############################################################
 
 # Check if the script is running as root
@@ -89,6 +93,10 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
         # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
         echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
     done
+
+    # Reload Squid to apply the new proxies
+    echo "Reloading Squid to apply new configurations..."
+    systemctl reload squid > /dev/null 2>&1
 
     echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
 else
