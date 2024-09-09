@@ -1,7 +1,13 @@
 #!/bin/bash
 
 ############################################################
-
+# Squid Proxy Installer with Automatic Testing
+# Author: Yujin Boby
+# Email: admin@serverOk.in
+# Github: https://github.com/serverok/squid-proxy-installer/
+# Web: https://serverok.in/squid
+# If you need professional assistance, reach out to
+# https://serverok.in/contact
 ############################################################
 
 # Check if the script is running as root
@@ -34,10 +40,33 @@ else
     echo "Detected Server IP: $SERVER_IP"
 fi
 
-# Function to generate a random string of specified length
+# Function to generate a random string of lowercase alphabet and numbers of specified length
 generate_random_string() {
     local length=$1
-    tr -dc A-Za-z0-9 </dev/urandom | head -c $length
+    tr -dc a-z0-9 </dev/urandom | head -c $length
+}
+
+# Function to test if the proxy can access the website
+test_proxy() {
+    local PROXY_IP=$1
+    local USERNAME=$2
+    local PASSWORD=$3
+
+    # Display testing message
+    echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing...."
+
+    # Use curl to test if the proxy can access the target website
+    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
+
+    if [ "$HTTP_STATUS" -eq 200 ]; then
+        # Show "Working" in green when the proxy is successful
+        echo -e " \033[32mWorking\033[0m"
+        return 0  # Success
+    else
+        # Show "Not working" in red when the proxy fails
+        echo -e " \033[31mNot working\033[0m"
+        return 1  # Failure
+    fi
 }
 
 # Ask the user to select mode: Manual (M) or Automatic (A)
@@ -71,7 +100,7 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
     fi
 
     for ((i=1; i<=proxy_count; i++)); do
-        # Generate a random username and password
+        # Generate a random username and password in lowercase
         USERNAME=$(generate_random_string 8)
         PASSWORD=$(generate_random_string 12)
 
@@ -87,8 +116,8 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
         # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
         echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
 
-        # Sleep for 3 to 5 seconds to avoid issues when creating multiple proxies at once
-        sleep $((3 + RANDOM % 3))  # This introduces a 3 to 5 second delay
+        # Test the created proxy
+        test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
     done
 
     # Reload Squid to apply the new proxies
