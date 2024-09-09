@@ -12,6 +12,24 @@ if [ `whoami` != root ]; then
     exit 1
 fi
 
+# Define the directory where old squid-related files are stored
+INSTALL_DIR="/root"
+
+# Function to clean up old installation files and logs
+cleanup_old_files() {
+    echo "Cleaning up old Squid installation files..."
+
+    # Remove old squid installation scripts and logs
+    find "$INSTALL_DIR" -type f -name "squid3-install.sh.*" -exec rm -f {} \;
+    rm -f "$INSTALL_DIR/proxy_users.txt"
+    rm -f "$INSTALL_DIR/proxy_users.log"
+
+    echo "Old Squid installation files cleaned."
+}
+
+# Run cleanup before installation or reinstallation
+cleanup_old_files
+
 # Ensure the OS detection script is available and up-to-date
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
 chmod 755 /usr/bin/sok-find-os
@@ -23,7 +41,6 @@ chmod 755 /usr/bin/create-proxy
 # Ensure the Squid uninstall script is available and up-to-date
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
 chmod +x /usr/bin/squid-uninstall
-
 
 # Check if Squid is already installed, and uninstall if found
 if [[ -d /etc/squid/ ]]; then
