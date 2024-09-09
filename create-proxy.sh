@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Automatic Proxy Creation with Password Confirmation and Testing
+# Automatic Proxy Creation with Correct Testing Format
 ############################################################
 
 # Check if the script is running as root
@@ -41,7 +41,7 @@ echo "How many proxies do you want to create? (Limit: 50 total)"
 read USER_COUNT
 
 # Validate the user count
-if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ $USER_COUNT -le 0 ]; then
+if [[ ! $USER_COUNT =~ ^[0-9]+$ ]] || [ $USER_COUNT -le 0 ]]; then
     echo "Invalid number of proxies. Exiting."
     exit 1
 fi
@@ -148,11 +148,19 @@ for proxy in $proxies; do
 
     # Test each proxy once
     test_proxy "$PROXY_IP" "$USERNAME" "$PASSWORD"
+    # Log working proxies
+    if [ $? -eq 0 ]; then
+        working_proxies+=("$proxy")
+    fi
 done
 
 # After testing all proxies, log the working proxies
-for proxy in "${working_proxies[@]}"; do
-    echo "$proxy" >> "$LOG_FILE"
-done
-
-echo -e "\033[32mProxy testing complete. Working proxies are saved to $LOG_FILE\033[0m"
+if [ ${#working_proxies[@]} -gt 0 ]; then
+    echo "Saving working proxies to $LOG_FILE"
+    for proxy in "${working_proxies[@]}"; do
+        echo "$proxy" >> "$LOG_FILE"
+    done
+    echo -e "\033[32mProxy testing complete. Working proxies are saved to $LOG_FILE\033[0m"
+else
+    echo -e "\033[31mNo working proxies found.\033[0m"
+fi
