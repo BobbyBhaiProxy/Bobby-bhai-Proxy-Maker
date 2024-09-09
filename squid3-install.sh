@@ -12,23 +12,22 @@ if [ `whoami` != root ]; then
     exit 1
 fi
 
-# Ensure find-os script is available
+# Ensure the OS detection script is available and up-to-date
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
 chmod 755 /usr/bin/sok-find-os
 
-# Ensure create-proxy script is available
+# Ensure the proxy creation script is available and up-to-date
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
 chmod 755 /usr/bin/create-proxy
 
-# Ensure squid-uninstall script is available
+# Ensure the Squid uninstall script is available and up-to-date
 /usr/bin/wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
 chmod +x /usr/bin/squid-uninstall
 
 
-# Check if Squid is already installed
+# Check if Squid is already installed, and uninstall if found
 if [[ -d /etc/squid/ ]]; then
     echo -e "\nSquid Proxy is already installed. Uninstalling the existing Squid Proxy...\n"
-    # Run the squid-uninstall script
     /usr/bin/squid-uninstall
     if [ $? -ne 0 ]; then
         echo -e "\nERROR: Failed to uninstall Squid. Please check the uninstall script or manually uninstall Squid.\n"
@@ -37,11 +36,11 @@ if [[ -d /etc/squid/ ]]; then
     echo -e "\nExisting Squid Proxy removed. Proceeding with the new installation...\n"
 fi
 
-# Detect OS
+# Detect the OS using the sok-find-os script
 SOK_OS=$(/usr/bin/sok-find-os)
 
 # Check if the OS is supported
-if [ $SOK_OS == "ERROR" ]; then
+if [ "$SOK_OS" == "ERROR" ]; then
     cat /etc/*release
     echo -e "\nOS NOT SUPPORTED.\n"
     exit 1;
@@ -76,6 +75,7 @@ elif [ "$SOK_OS" == "centos7" ] || [ "$SOK_OS" == "centos8" ] || [ "$SOK_OS" == 
     systemctl enable squid > /dev/null 2>&1
     systemctl restart squid > /dev/null 2>&1
 
+    # Add firewall rules for CentOS
     if [ -f /usr/bin/firewall-cmd ]; then
         firewall-cmd --zone=public --permanent --add-port=3128/tcp > /dev/null 2>&1
         firewall-cmd --reload > /dev/null 2>&1
