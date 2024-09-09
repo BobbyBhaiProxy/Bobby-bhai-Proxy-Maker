@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker (Without Spoofing Process)
+# Bobby Bhai Proxy Maker with Timeout for Testing
 ############################################################
 
 # Check if the script is running as root
@@ -34,7 +34,7 @@ generate_random_string() {
     tr -dc a-z0-9 </dev/urandom | head -c $length
 }
 
-# Function to test if the proxy can access the website
+# Function to test if the proxy can access the website with a 10-second timeout
 test_proxy() {
     local PROXY_IP=$1
     local USERNAME=$2
@@ -43,15 +43,15 @@ test_proxy() {
     # Display testing message
     echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing...."
 
-    # Use curl to test if the proxy can access the target website
-    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
+    # Use curl with a 10-second timeout to test if the proxy can access the target website
+    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 --max-time 10 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
 
     if [ "$HTTP_STATUS" -eq 200 ]; then
         # Show "Working" in green when the proxy is successful
         echo -e " \033[32mWorking\033[0m"
         return 0  # Success
     else
-        # Show "Not working" in red when the proxy fails
+        # Show "Not working" in red when the proxy fails or times out
         echo -e " \033[31mNot working\033[0m"
         return 1  # Failure
     fi
@@ -76,7 +76,7 @@ if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
     echo -e "\n# This Proxy is created at $(date)" >> "$LOG_FILE"
     echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
 
-    # Test the proxy
+    # Test the proxy with timeout
     test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
 
     echo "Proxy created and saved to $LOG_FILE:"
@@ -114,7 +114,7 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
         # Introduce a delay of 3 seconds between each proxy creation
         sleep 3
 
-        # Test the created proxy
+        # Test the created proxy with timeout
         test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
     done
 
