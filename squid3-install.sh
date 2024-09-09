@@ -12,17 +12,17 @@ if [ `whoami` != root ]; then
     exit 1
 fi
 
-# Define the directory where old squid-related files are stored
-INSTALL_DIR="/root"
-
 # Function to clean up old installation files and logs
 cleanup_old_files() {
     echo "Cleaning up old Squid installation files..."
 
-    # Remove old squid installation scripts and logs
-    find "$INSTALL_DIR" -type f -name "squid3-install.sh.*" -exec rm -f {} \;
-    rm -f "$INSTALL_DIR/proxy_users.txt"
-    rm -f "$INSTALL_DIR/proxy_users.log"
+    # Ensure we are cleaning files in the /root directory
+    cd /root
+
+    # Remove any old squid installation scripts and logs
+    find /root -type f -name "squid3-install.sh.*" -exec rm -f {} \;
+    rm -f /root/proxy_users.txt
+    rm -f /root/proxy_users.log
 
     echo "Old Squid installation files cleaned."
 }
@@ -31,7 +31,11 @@ cleanup_old_files() {
 cleanup_old_files
 
 # Ensure the OS detection script is available and up-to-date
-/usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
+echo "Downloading OS detection script..."
+if ! /usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh; then
+    echo "ERROR: Failed to download sok-find-os. Please check your internet connection or the URL."
+    exit 1
+fi
 chmod 755 /usr/bin/sok-find-os
 
 # Ensure the proxy creation script is available and up-to-date
