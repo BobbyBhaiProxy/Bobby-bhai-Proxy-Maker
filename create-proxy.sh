@@ -1,22 +1,16 @@
 #!/bin/bash
 
 ############################################################
-
+# Bobby Bhai Proxy Maker with Automatic Testing and Delay
 ############################################################
 
 # Check if the script is running as root
 if [ `whoami` != root ]; then
-	echo "ERROR: You need to run the script as root or add sudo before command."
-	exit 1
-fi
-
-# Check if htpasswd is installed
-if [ ! -f /usr/bin/htpasswd ]; then
-    echo "ERROR: htpasswd not found. Please install apache2-utils or httpd-tools."
+    echo "ERROR: You need to run the script as root or add sudo before the command."
     exit 1
 fi
 
-# Log file location
+# Log file for proxy details
 LOG_FILE="/root/ProxyList.txt"
 
 # Check if the log file exists, if not create it
@@ -109,6 +103,9 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
 
         # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
         echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+
+        # Introduce a delay of 3 seconds between each proxy creation
+        sleep 3
 
         # Test the created proxy
         test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
