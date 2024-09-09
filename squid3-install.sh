@@ -27,10 +27,9 @@ chmod +x /usr/bin/squid-uninstall
 
 # Check if Squid is already installed
 if [[ -d /etc/squid/ ]]; then
-    echo -e "\nSquid Proxy already installed.\n"
-    echo -e "If you want to reinstall, first uninstall squid proxy by running the following command:\n"
-    echo -e "sudo squid-uninstall\n"
-    exit 1
+    echo -e "\nSquid Proxy is already installed. Uninstalling the existing Squid Proxy...\n"
+    sudo squid-uninstall
+    echo -e "\nExisting Squid Proxy removed. Proceeding with the new installation...\n"
 fi
 
 # Detect OS
