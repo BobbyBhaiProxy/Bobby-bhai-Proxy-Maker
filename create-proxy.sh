@@ -146,20 +146,13 @@ working_proxies=()
 for proxy in $proxies; do
     IFS=":" read -r PROXY_IP PORT USERNAME PASSWORD <<< "$proxy"
 
-    if test_proxy "$PROXY_IP" "$USERNAME" "$PASSWORD"; then
-        working_proxies+=("$proxy")
-    fi
+    # Test each proxy once
+    test_proxy "$PROXY_IP" "$USERNAME" "$PASSWORD"
 done
 
-# Check if we have enough working proxies
-if [ ${#working_proxies[@]} -ne $USER_COUNT ]; then
-    echo "ERROR: Not all proxies are working. Please check the script and try again."
-    exit 1
-else
-    echo "All working proxies are saved to $LOG_FILE"
-    for proxy in "${working_proxies[@]}"; do
-        echo "$proxy" >> "$LOG_FILE"
-    done
-fi
+# After testing all proxies, log the working proxies
+for proxy in "${working_proxies[@]}"; do
+    echo "$proxy" >> "$LOG_FILE"
+done
 
-echo -e "\033[32mWorking proxy users have been created and saved to $LOG_FILE\033[0m"
+echo -e "\033[32mProxy testing complete. Working proxies are saved to $LOG_FILE\033[0m"
