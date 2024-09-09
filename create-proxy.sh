@@ -1,13 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Squid Proxy Installer with Automatic Testing
-# Author: Yujin Boby
-# Email: admin@serverOk.in
-# Github: https://github.com/serverok/squid-proxy-installer/
-# Web: https://serverok.in/squid
-# If you need professional assistance, reach out to
-# https://serverok.in/contact
+
 ############################################################
 
 # Check if the script is running as root
