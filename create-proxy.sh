@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Create Proxy Users with Auto-Testing
+# Create Proxy Users with Auto-Testing and Server IP Detection
 ############################################################
 
 # Check if the script is running as root
@@ -18,6 +18,16 @@ if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE"
 fi
 
+# Detect the server's public IP address
+SERVER_IP=$(curl -s ifconfig.me)
+
+if [ -z "$SERVER_IP" ]; then
+    echo "ERROR: Unable to detect the server IP. Please check your internet connection."
+    exit 1
+else
+    echo "Detected Server IP: $SERVER_IP"
+fi
+
 # Prompt for the number of proxies
 echo "How many working proxies do you want to create?"
 read USER_COUNT
@@ -30,12 +40,6 @@ fi
 
 # Calculate the maximum number of attempts for testing proxies
 MAX_ATTEMPTS=$((USER_COUNT * 2))
-
-# Prompt for IP series for spoofing the X-Forwarded-For header
-echo "Enter the first two segments of your desired IP (e.g., 172.232, 103.15):"
-read -p "IP series: " IP_PREFIX
-
-echo "Selected IP Prefix: $IP_PREFIX"
 
 # Add a comment in the log file to indicate the start of this session
 echo -e "\n# Proxy Session on $(date)" >> "$LOG_FILE"
@@ -83,8 +87,7 @@ add_user_to_password_file() {
 # Function to create and test proxies
 create_and_test_proxies() {
     local count=$1
-    local ip_prefix=$2
-    local max_attempts=$3
+    local max_attempts=$2
     local proxies=()
 
     echo "Creating and testing $count proxies..."
@@ -95,18 +98,8 @@ create_and_test_proxies() {
 
         echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
 
-        # Generate IP address
-        OCTET=$(shuf -i 1-254 -n 1)
-        SPOOFED_IP="${ip_prefix}.$OCTET"
-
-        echo "Generated Spoofed IP: $SPOOFED_IP for User $USERNAME"
-
         # Add user to Squid password file
         add_user_to_password_file "$USERNAME" "$PASSWORD"
-
-        # Append user and IP details to the Squid config for X-Forwarded-For spoofing
-        echo -e "acl user$i proxy_auth $USERNAME" >> /etc/squid/squid.conf
-        echo "request_header_add X-Forwarded-For \"$SPOOFED_IP\" user$i" >> /etc/squid/squid.conf
 
         # Restart Squid to apply the new proxy
         echo "Restarting Squid to apply changes..."
@@ -116,30 +109,12 @@ create_and_test_proxies() {
         fi
 
         # Test if the proxy works with the target URL
-        if test_proxy "$SPOOFED_IP" "$USERNAME" "$PASSWORD"; then
-            # If the proxy works, save it to the list and break the loop
-            proxies+=("$SPOOFED_IP:3128:$USERNAME:$PASSWORD")
+        PROXY_IP="$SERVER_IP"  # Use the detected server IP
+        if test_proxy "$PROXY_IP" "$USERNAME" "$PASSWORD"; then
+            # If the proxy works, save it to the list and continue
+            proxies+=("$PROXY_IP:3128:$USERNAME:$PASSWORD")
         else
-            # If the proxy doesn't work, retry without spoofing
-            echo "Proxy failed with spoofing. Retrying without spoofing..."
-            
-            # Remove previous spoofed configurations
-            sed -i "/acl user$i proxy_auth $USERNAME/d" /etc/squid/squid.conf
-            sed -i "/request_header_add X-Forwarded-For \"$SPOOFED_IP\" user$i/d" /etc/squid/squid.conf
-
-            # Restart Squid to apply the clean configuration
-            if ! systemctl restart squid; then
-                echo "ERROR: Failed to restart Squid service."
-                exit 1
-            fi
-
-            # Test proxy without spoofing
-            if test_proxy "$SPOOFED_IP" "$USERNAME" "$PASSWORD"; then
-                # If the proxy works without spoofing, save it to the list
-                proxies+=("$SPOOFED_IP:3128:$USERNAME:$PASSWORD")
-            else
-                echo "Proxy failed even without spoofing."
-            fi
+            echo "Proxy failed."
         fi
     done
 
@@ -147,8 +122,8 @@ create_and_test_proxies() {
     echo "${proxies[@]}"
 }
 
-# Create and test proxies initially
-working_proxies=$(create_and_test_proxies $USER_COUNT $IP_PREFIX $MAX_ATTEMPTS)
+# Create and test proxies
+working_proxies=$(create_and_test_proxies $USER_COUNT $MAX_ATTEMPTS)
 
 # Check if we have enough working proxies
 if [ $(echo "$working_proxies" | wc -w) -ne $USER_COUNT ]; then
