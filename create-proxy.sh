@@ -86,6 +86,9 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
 
         # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
         echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+
+        # Sleep for 3 to 5 seconds to avoid issues when creating multiple proxies at once
+        sleep $((3 + RANDOM % 3))  # This introduces a 3 to 5 second delay
     done
 
     # Reload Squid to apply the new proxies
