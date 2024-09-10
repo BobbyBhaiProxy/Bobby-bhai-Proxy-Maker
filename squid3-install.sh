@@ -6,9 +6,14 @@
 # Github: https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker
 ############################################################
 
+# Define colors for success and error messages
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'  # No Color
+
 # Check if the script is running as root
 if [ "$(whoami)" != "root" ]; then
-    echo "ERROR: You need to run the script as root or use sudo."
+    echo -e "${RED}ERROR: You need to run the script as root or use sudo.${NC}"
     exit 1
 fi
 
@@ -16,11 +21,6 @@ fi
 INSTALL_DIR="/root"
 LOG_FILE="/root/ProxyList.txt"
 TARGET_URL="https://www.irctc.co.in"  # Replace with your target website
-
-# Define colors for output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'  # No Color
 
 # Function to clean up old installation files
 cleanup_old_files() {
@@ -45,7 +45,7 @@ detect_os() {
     SOK_OS=$($OS_SCRIPT)
     
     if [ "$SOK_OS" == "ERROR" ]; then
-        echo "Unsupported OS detected."
+        echo -e "${RED}ERROR: Unsupported OS detected.${NC}"
         exit 1
     fi
 
@@ -54,10 +54,10 @@ detect_os() {
 
 # Function to uninstall Squid
 uninstall_squid() {
-    echo "Uninstalling Squid Proxy..."
+    echo -e "${RED}Uninstalling Squid Proxy...${NC}"
     if [ -f /usr/bin/squid-uninstall ]; then
         /usr/bin/squid-uninstall
-        echo "Squid successfully uninstalled."
+        echo -e "${GREEN}Squid successfully uninstalled.${NC}"
     else
         echo "No uninstall script found, performing manual removal."
         if [[ "$SOK_OS" == "ubuntu" || "$SOK_OS" == "debian" ]]; then
@@ -65,7 +65,7 @@ uninstall_squid() {
         elif [[ "$SOK_OS" == "centos" || "$SOK_OS" == "almalinux" ]]; then
             yum remove squid -y
         fi
-        echo "Squid manually removed."
+        echo -e "${GREEN}Squid manually removed.${NC}"
     fi
 }
 
@@ -73,12 +73,6 @@ uninstall_squid() {
 install_squid() {
     echo "Installing Squid Proxy..."
     
-    # Check for the existence of Squid
-    if [ -f /etc/squid/squid.conf ]; then
-        echo "Squid is already installed. Skipping installation."
-        return
-    fi
-
     # Install Squid based on detected OS
     if [[ "$SOK_OS" == "ubuntu2404" || "$SOK_OS" == "ubuntu2204" || "$SOK_OS" == "ubuntu2004" || "$SOK_OS" == "debian10" || "$SOK_OS" == "debian11" || "$SOK_OS" == "debian12" ]]; then
         apt update > /dev/null 2>&1
@@ -88,7 +82,7 @@ install_squid() {
         yum install squid httpd-tools wget -y > /dev/null 2>&1
         mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
     else
-        echo "Unsupported OS for Squid installation. Exiting."
+        echo -e "${RED}ERROR: Unsupported OS for Squid installation. Exiting.${NC}"
         exit 1
     fi
 
@@ -98,7 +92,7 @@ install_squid() {
     systemctl enable squid > /dev/null 2>&1
     systemctl restart squid > /dev/null 2>&1
 
-    echo "Squid installed successfully."
+    echo -e "${GREEN}Squid installed successfully.${NC}"
 }
 
 # Function to download proxy creation script and uninstall script
@@ -117,7 +111,7 @@ download_scripts() {
         chmod +x /usr/bin/squid-uninstall
     fi
 
-    echo "Scripts downloaded successfully."
+    echo -e "${GREEN}Scripts downloaded successfully.${NC}"
 }
 
 # Function to create proxy users
@@ -152,7 +146,7 @@ create_proxy() {
         read -p "How many proxies do you want to create? " proxy_count
 
         if ! [[ "$proxy_count" =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
-            echo "Invalid number. Exiting."
+            echo -e "${RED}ERROR: Invalid number. Exiting.${NC}"
             exit 1
         fi
 
@@ -170,13 +164,13 @@ create_proxy() {
             sleep 3
         done
     else
-        echo "Invalid mode selected. Exiting."
+        echo -e "${RED}ERROR: Invalid mode selected. Exiting.${NC}"
         exit 1
     fi
 
     # Reload Squid to apply changes
     systemctl reload squid > /dev/null 2>&1
-    echo "Proxies created and tested successfully."
+    echo -e "${GREEN}Proxies created and tested successfully.${NC}"
 }
 
 # Function to test proxies and log the result (with a 5-second timeout)
@@ -199,12 +193,32 @@ test_and_log_proxy() {
     fi
 }
 
-# Main script logic
-cleanup_old_files
-detect_os
-install_squid
-download_scripts
+# Main logic to handle Squid installation, uninstallation, and proxy creation
+main() {
+    cleanup_old_files
+    detect_os
 
-echo -e "Squid installation and setup completed."
-echo -e "To create proxies, use the command: create-proxy."
-echo -e "To uninstall Squid, use the command: sudo /usr/bin/squid-uninstall."
+    # Check if Squid is already installed
+    if [ -f /etc/squid/squid.conf ]; then
+        echo -e "${RED}Squid is already installed.${NC}"
+        read -p "Do you want to reinstall Squid? (y/n): " reinstall_choice
+
+        if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
+            uninstall_squid
+            install_squid
+        else
+            echo -e "${GREEN}To create proxies, use the command: create-proxy.${NC}"
+            exit 0
+        fi
+    else
+        install_squid
+    fi
+
+    download_scripts
+    echo -e "${GREEN}Squid installation and setup completed.${NC}"
+    echo -e "${GREEN}To create proxies, use the command: create-proxy.${NC}"
+    echo -e "${GREEN}To uninstall Squid, use the command: sudo /usr/bin/squid-uninstall.${NC}"
+}
+
+# Run the main function
+main
