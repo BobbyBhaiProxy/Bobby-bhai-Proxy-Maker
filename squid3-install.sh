@@ -7,8 +7,8 @@
 ############################################################
 
 # Check if the script is running as root
-if [ `whoami` != root ]; then
-    echo "ERROR: You need to run the script as root or add sudo before the command."
+if [ "$(whoami)" != "root" ]; then
+    echo "ERROR: You need to run the script as root or use sudo."
     exit 1
 fi
 
@@ -17,20 +17,27 @@ cleanup_old_files() {
     echo "Cleaning up old Squid installation files..."
 
     # Ensure we are cleaning files in the /root directory
-    cd /root
+    cd /root || exit
 
-    # Remove any old squid installation scripts and logs
+    # Remove old squid installation scripts and logs
     find /root -type f -name "squid3-install.sh.*" -exec rm -f {} \;
-    rm -f /root/proxy_users.txt
-    rm -f /root/proxy_users.log
+    rm -f /root/proxy_users.txt /root/proxy_users.log
 
     echo "Old Squid installation files cleaned."
 }
 
-# Function to download and run the installation script
+# Function to download and install Squid Proxy
 install_squid() {
     echo "Downloading and installing Squid Proxy..."
     wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid3-install.sh -O squid3-install.sh
+    chmod +x squid3-install.sh
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to download squid3-install.sh. Please check the URL or your internet connection."
+        exit 1
+    fi
+
+    # Run the downloaded installation script
     sudo bash squid3-install.sh
 
     if [ $? -ne 0 ]; then
@@ -41,45 +48,47 @@ install_squid() {
     echo "Squid installed successfully."
 }
 
-# Function to check if Squid is installed properly
-is_squid_installed() {
-    if systemctl status squid > /dev/null 2>&1; then
-        return 0  # Squid is installed
-    else
-        return 1  # Squid is not installed
-    fi
-}
-
-# Function to download the supporting scripts (OS detection, proxy creation, uninstall script)
+# Function to download supporting scripts (OS detection, proxy creation, uninstall script)
 download_supporting_scripts() {
     echo "Downloading necessary scripts..."
 
     # Download OS detection script
-    if ! /usr/bin/wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh; then
+    wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
+    if [ $? -ne 0 ]; then
         echo "ERROR: Failed to download sok-find-os. Please check your internet connection or the URL."
         exit 1
     fi
     chmod 755 /usr/bin/sok-find-os
 
     # Download proxy creation script
-    /usr/bin/wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
+    wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
     chmod 755 /usr/bin/create-proxy
 
     # Download Squid uninstall script
-    /usr/bin/wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
+    wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
     chmod +x /usr/bin/squid-uninstall
 }
 
-# Check if Squid is already installed
+# Function to check if Squid is installed and running
+is_squid_installed() {
+    systemctl status squid > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        return 0  # Squid is installed and running
+    else
+        return 1  # Squid is not installed
+    fi
+}
+
+# Main installation process
 if is_squid_installed; then
     echo -e "\nSquid Proxy is already installed."
 
     # Ask the user if they want to uninstall and reinstall Squid
-    read -p "Do you want to uninstall and reinstall Squid? (y/n): " reinstall_choice
+    read -rp "Do you want to uninstall and reinstall Squid? (y/n): " reinstall_choice
 
-    if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
+    if [[ "$reinstall_choice" =~ ^[Yy]$ ]]; then
         echo "Uninstalling Squid..."
-        
+
         # Automatically run the squid-uninstall command
         sudo squid-uninstall
 
@@ -93,19 +102,18 @@ if is_squid_installed; then
         # Clean up old files before reinstalling
         cleanup_old_files
 
-        # Download and run the new installation script
+        # Download and install the new Squid
         install_squid
     else
         echo "Exiting without reinstalling Squid."
         exit 0
     fi
 else
-    # If Squid is not installed, download and install Squid
     echo "Squid Proxy is not installed. Installing now..."
     install_squid
 fi
 
-# Download supporting scripts (OS detection, proxy creation, uninstall script)
+# Download the supporting scripts
 download_supporting_scripts
 
 # Detect the OS using the sok-find-os script
