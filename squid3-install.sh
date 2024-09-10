@@ -28,23 +28,24 @@ cleanup_old_files() {
 
 # Function to download and install Squid Proxy
 install_squid() {
-    echo "Downloading and installing Squid Proxy..."
+    echo "Checking if Squid is already installed..."
 
     if [ -f /etc/squid/squid.conf ]; then
         echo "Squid is already installed. Skipping installation."
         return
     fi
 
-    wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid3-install.sh -O squid3-install.sh
-    chmod +x squid3-install.sh
-
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to download squid3-install.sh. Please check the URL or your internet connection."
+    echo "Downloading and installing Squid Proxy..."
+    
+    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+        apt update > /dev/null 2>&1
+        apt -y install apache2-utils squid > /dev/null 2>&1
+    elif [[ "$OS" == "centos" || "$OS" == "almalinux" ]]; then
+        yum install squid httpd-tools wget -y > /dev/null 2>&1
+    else
+        echo "Unsupported OS for Squid installation."
         exit 1
     fi
-
-    # Run the downloaded installation script
-    sudo bash squid3-install.sh
 
     if [ $? -ne 0 ]; then
         echo "ERROR: Squid installation failed. Please check the logs."
@@ -54,17 +55,9 @@ install_squid() {
     echo "Squid installed successfully."
 }
 
-# Function to download supporting scripts (OS detection, proxy creation, uninstall script)
+# Function to download supporting scripts (proxy creation, uninstall script)
 download_supporting_scripts() {
     echo "Downloading necessary scripts..."
-
-    # Download OS detection script
-    wget -q --no-check-certificate -O /usr/bin/sok-find-os https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/sok-find-os.sh
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to download sok-find-os. Please check your internet connection or the URL."
-        exit 1
-    fi
-    chmod 755 /usr/bin/sok-find-os
 
     # Download proxy creation script
     wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
@@ -79,18 +72,25 @@ download_supporting_scripts() {
     chmod +x /usr/bin/squid-uninstall
 }
 
-# Function to check if Squid is installed and running
-is_squid_installed() {
-    systemctl status squid > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        return 0  # Squid is installed and running
+# Function to detect OS using /etc/os-release
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$(echo "$ID" | tr '[:upper:]' '[:lower:]')
+        VERSION_ID=$(echo "$VERSION_ID" | tr -d '"')
     else
-        return 1  # Squid is not installed
+        echo "ERROR: OS detection failed. /etc/os-release not found."
+        exit 1
     fi
+
+    echo "Detected OS: $OS, Version: $VERSION_ID"
 }
 
 # Main installation process
-if is_squid_installed; then
+detect_os
+
+# Check if Squid is installed and running
+if systemctl status squid > /dev/null 2>&1; then
     echo -e "\nSquid Proxy is already installed. Skipping installation."
 else
     echo "Squid Proxy is not installed. Installing now..."
@@ -100,41 +100,20 @@ fi
 # Download the supporting scripts
 download_supporting_scripts
 
-# Detect the OS using the sok-find-os script
-SOK_OS=$(/usr/bin/sok-find-os)
-
-# Check if the OS is supported
-if [ "$SOK_OS" == "ERROR" ]; then
-    cat /etc/*release
-    echo -e "\nOS NOT SUPPORTED.\n"
-    exit 1
-fi
-
 # Proceed with Squid configuration based on detected OS
-echo -e "Configuring Squid on ${SOK_OS}, please wait....\n"
+echo -e "Configuring Squid on ${OS}, please wait....\n"
 
-if [[ "$SOK_OS" == "ubuntu2404" || "$SOK_OS" == "ubuntu2204" || "$SOK_OS" == "ubuntu2004" ]]; then
-    apt update > /dev/null 2>&1
-    apt -y install apache2-utils squid > /dev/null 2>&1
+if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
     touch /etc/squid/passwd
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/ubuntu-2204.conf
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/${OS}${VERSION_ID}.conf
     iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
     systemctl enable squid > /dev/null 2>&1
     systemctl restart squid > /dev/null 2>&1
 
-elif [[ "$SOK_OS" == "debian10" || "$SOK_OS" == "debian11" || "$SOK_OS" == "debian12" ]]; then
-    apt update > /dev/null 2>&1
-    apt -y install apache2-utils squid > /dev/null 2>&1
+elif [[ "$OS" == "centos" || "$OS" == "almalinux" ]]; then
     touch /etc/squid/passwd
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/debian12.conf
-    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
-    systemctl enable squid > /dev/null 2>&1
-    systemctl restart squid > /dev/null 2>&1
-
-elif [[ "$SOK_OS" == "centos7" || "$SOK_OS" == "centos8" || "$SOK_OS" == "centos9" || "$SOK_OS" == "almalinux8" || "$SOK_OS" == "almalinux9" ]]; then
-    yum install squid httpd-tools wget -y > /dev/null 2>&1
     mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-centos7.conf
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/${OS}${VERSION_ID}.conf
     iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
     systemctl enable squid > /dev/null 2>&1
     systemctl restart squid > /dev/null 2>&1
@@ -155,6 +134,6 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${NC}"
-echo -e "${GREEN}Squid Proxy successfully installed and configured on ${SOK_OS}.${NC}"
+echo -e "${GREEN}Squid Proxy successfully installed and configured on ${OS}.${NC}"
 echo -e "${CYAN}To create proxy users, run the command: create-proxy${NC}"
 echo -e "${NC}"
