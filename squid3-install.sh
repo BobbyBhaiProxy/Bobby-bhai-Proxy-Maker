@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker
+# Bobby Bhai Proxy Maker - Squid Installer
 # Author: Your Name
 # Github: https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker
 ############################################################
@@ -17,10 +17,8 @@ if [ "$(whoami)" != "root" ]; then
     exit 1
 fi
 
-# Define installation directory and log file
+# Define installation directory
 INSTALL_DIR="/root"
-LOG_FILE="/root/ProxyList.txt"
-TARGET_URL="https://www.irctc.co.in"  # Replace with your target website
 
 # Function to clean up old installation files
 cleanup_old_files() {
@@ -88,72 +86,62 @@ install_squid() {
         "ubuntu2404"|"ubuntu2204"|"ubuntu2004"|"ubuntu1804"|"ubuntu1604")
             apt update > /dev/null 2>&1
             apt -y install apache2-utils squid > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/ubuntu-2204.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/ubuntu-2204.conf
             ;;
 
         # Debian versions
         "debian12")
             apt update > /dev/null 2>&1
             apt -y install apache2-utils squid > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/debian12.conf
-            ;;
-        "debian11")
-            apt update > /dev/null 2>&1
-            apt -y install apache2-utils squid > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/debian11.conf
-            ;;
-        "debian10")
-            apt update > /dev/null 2>&1
-            apt -y install apache2-utils squid > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/debian10.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/debian12.conf
             ;;
 
         # CentOS/AlmaLinux/RockyLinux versions
         "centos7")
             yum install squid httpd-tools wget -y > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-centos7.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-centos7.conf
             ;;
         "centos8"|"almalinux8"|"rockylinux8")
             yum install squid httpd-tools wget -y > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-centos8.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-rockylinux.conf
             ;;
         "centos9"|"almalinux9"|"rockylinux9")
             yum install squid httpd-tools wget -y > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-centos9.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-rockylinux.conf
             ;;
 
         # Fedora
         "fedora")
             dnf install squid httpd-tools wget -y > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-fedora.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-fedora.conf
             ;;
 
         # Alpine Linux
         "alpine")
             apk add squid apache2-utils > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-alpine.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-alpine.conf
             ;;
 
         # Arch Linux
         "archlinux")
             pacman -S squid apache-tools --noconfirm > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-archlinux.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-archlinux.conf
             ;;
 
         # openSUSE
         "opensuse15")
             zypper install squid apache2-utils -y > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-opensuse15.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-opensuse15.conf
             ;;
 
         # FreeBSD/OpenBSD
         "freebsd")
             pkg install squid apache2-utils -y > /dev/null 2>&1
-            wget -q --no-check-certificate -O /usr/local/etc/squid/squid.conf https://example.com/conf/squid-freebsd.conf
+            wget -q --no-check-certificate -O /usr/local/etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-freebsd.conf
             ;;
         "openbsd")
             pkg_add squid apache2-utils > /dev/null 2>&1
-            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-openbsd.conf
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/squid-openbsd.conf
             ;;
 
         # If OS is unsupported
@@ -170,6 +158,7 @@ install_squid() {
 
     echo -e "${GREEN}Squid installed successfully.${NC}"
 }
+
 
 # Function to download proxy creation script and uninstall script
 download_scripts() {
@@ -188,85 +177,6 @@ download_scripts() {
     fi
 
     echo -e "${GREEN}Scripts downloaded successfully.${NC}"
-}
-
-# Function to create proxy users
-create_proxy() {
-    echo "Proxy creation started..."
-
-    # Get the server's public IP
-    SERVER_IP=$(curl -s ifconfig.me)
-
-    # Get the current time in Indian Standard Time (IST) and 12-hour format
-    CURRENT_TIME=$(TZ='Asia/Kolkata' date +"%I:%M %p %d-%m-%Y")
-
-    # Add a header to the log file with the date and time of proxy creation
-    echo -e "\nThis set of proxies was created at $CURRENT_TIME (IST)\n" >> "$LOG_FILE"
-
-    # Ask user for the mode (Manual or Automatic)
-    read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
-
-    if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
-        # Manual input mode
-        read -p "Enter Proxy username: " USERNAME
-        read -p "Enter Proxy password: " PASSWORD
-
-        # Add the user to Squid
-        htpasswd -b /etc/squid/passwd "$USERNAME" "$PASSWORD"
-
-        # Test and log the proxy
-        test_and_log_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
-
-    elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
-        # Automatic mode
-        read -p "How many proxies do you want to create? " proxy_count
-
-        if ! [[ "$proxy_count" =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
-            echo -e "${RED}ERROR: Invalid number. Exiting.${NC}"
-            exit 1
-        fi
-
-        for ((i=1; i<=proxy_count; i++)); do
-            USERNAME="user$(tr -dc a-z0-9 </dev/urandom | head -c 6)"
-            PASSWORD="pass$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8)"
-
-            # Add the user to Squid
-            htpasswd -b /etc/squid/passwd "$USERNAME" "$PASSWORD"
-
-            # Test and log the proxy
-            test_and_log_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
-
-            # Simulate delay for each proxy creation
-            sleep 3
-        done
-    else
-        echo -e "${RED}ERROR: Invalid mode selected. Exiting.${NC}"
-        exit 1
-    fi
-
-    # Reload Squid to apply changes
-    systemctl reload squid > /dev/null 2>&1
-    echo -e "${GREEN}Proxies created and tested successfully.${NC}"
-}
-
-# Function to test proxies and log the result (with a 5-second timeout)
-test_and_log_proxy() {
-    local PROXY_IP=$1
-    local USERNAME=$2
-    local PASSWORD=$3
-
-    # Display testing message
-    echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing..."
-
-    # Test the proxy by connecting to the target website with a 5-second timeout
-    HTTP_STATUS=$(curl -x "http://$USERNAME:$PASSWORD@$PROXY_IP:3128" -s -o /dev/null -w "%{http_code}" --max-time 5 "$TARGET_URL")
-
-    if [ "$HTTP_STATUS" -eq 200 ]; then
-        echo -e " | ${GREEN}Working${NC}"
-        echo "$PROXY_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-    else
-        echo -e " | ${RED}Not Working${NC}"
-    fi
 }
 
 # Main logic to handle Squid installation, uninstallation, and proxy creation
