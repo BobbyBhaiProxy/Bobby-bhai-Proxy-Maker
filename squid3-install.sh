@@ -41,6 +41,15 @@ install_squid() {
     echo "Squid installed successfully."
 }
 
+# Function to check if Squid is installed properly
+is_squid_installed() {
+    if systemctl status squid > /dev/null 2>&1; then
+        return 0  # Squid is installed
+    else
+        return 1  # Squid is not installed
+    fi
+}
+
 # Function to download the supporting scripts (OS detection, proxy creation, uninstall script)
 download_supporting_scripts() {
     echo "Downloading necessary scripts..."
@@ -61,20 +70,11 @@ download_supporting_scripts() {
     chmod +x /usr/bin/squid-uninstall
 }
 
-# Function to check if Squid is installed properly
-is_squid_installed() {
-    if systemctl status squid > /dev/null 2>&1; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # Check if Squid is already installed
 if is_squid_installed; then
     echo -e "\nSquid Proxy is already installed."
 
-    # Ask the user if they want to reinstall Squid
+    # Ask the user if they want to uninstall and reinstall Squid
     read -p "Do you want to uninstall and reinstall Squid? (y/n): " reinstall_choice
 
     if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
@@ -95,7 +95,6 @@ if is_squid_installed; then
 
         # Download and run the new installation script
         install_squid
-        exit 0
     else
         echo "Exiting without reinstalling Squid."
         exit 0
@@ -104,7 +103,6 @@ else
     # If Squid is not installed, download and install Squid
     echo "Squid Proxy is not installed. Installing now..."
     install_squid
-    exit 0
 fi
 
 # Download supporting scripts (OS detection, proxy creation, uninstall script)
