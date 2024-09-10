@@ -29,6 +29,12 @@ cleanup_old_files() {
 # Function to download and install Squid Proxy
 install_squid() {
     echo "Downloading and installing Squid Proxy..."
+
+    if [ -f /etc/squid/squid.conf ]; then
+        echo "Squid is already installed. Skipping installation."
+        return
+    fi
+
     wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid3-install.sh -O squid3-install.sh
     chmod +x squid3-install.sh
 
@@ -62,9 +68,13 @@ download_supporting_scripts() {
 
     # Download proxy creation script
     wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to download create-proxy. Please check your internet connection or the URL."
+        exit 1
+    fi
     chmod 755 /usr/bin/create-proxy
 
-    # Download Squid uninstall script
+    # Download Squid uninstall script (optional)
     wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
     chmod +x /usr/bin/squid-uninstall
 }
@@ -81,33 +91,7 @@ is_squid_installed() {
 
 # Main installation process
 if is_squid_installed; then
-    echo -e "\nSquid Proxy is already installed."
-
-    # Ask the user if they want to uninstall and reinstall Squid
-    read -rp "Do you want to uninstall and reinstall Squid? (y/n): " reinstall_choice
-
-    if [[ "$reinstall_choice" =~ ^[Yy]$ ]]; then
-        echo "Uninstalling Squid..."
-
-        # Automatically run the squid-uninstall command
-        sudo squid-uninstall
-
-        if [ $? -ne 0 ]; then
-            echo "ERROR: Failed to uninstall Squid. Please manually check the uninstall process."
-            exit 1
-        fi
-
-        echo "Squid uninstalled successfully."
-
-        # Clean up old files before reinstalling
-        cleanup_old_files
-
-        # Download and install the new Squid
-        install_squid
-    else
-        echo "Exiting without reinstalling Squid."
-        exit 0
-    fi
+    echo -e "\nSquid Proxy is already installed. Skipping installation."
 else
     echo "Squid Proxy is not installed. Installing now..."
     install_squid
@@ -126,8 +110,8 @@ if [ "$SOK_OS" == "ERROR" ]; then
     exit 1
 fi
 
-# Proceed with Squid installation based on detected OS
-echo -e "Installing Squid on ${SOK_OS}, please wait....\n"
+# Proceed with Squid configuration based on detected OS
+echo -e "Configuring Squid on ${SOK_OS}, please wait....\n"
 
 if [[ "$SOK_OS" == "ubuntu2404" || "$SOK_OS" == "ubuntu2204" || "$SOK_OS" == "ubuntu2004" ]]; then
     apt update > /dev/null 2>&1
@@ -171,6 +155,6 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${NC}"
-echo -e "${GREEN}Squid Proxy successfully installed on ${SOK_OS}.${NC}"
-echo -e "${CYAN}To create proxy users, run command: create-proxy${NC}"
+echo -e "${GREEN}Squid Proxy successfully installed and configured on ${SOK_OS}.${NC}"
+echo -e "${CYAN}To create proxy users, run the command: create-proxy${NC}"
 echo -e "${NC}"
