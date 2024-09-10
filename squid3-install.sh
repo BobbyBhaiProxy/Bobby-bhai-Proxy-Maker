@@ -12,128 +12,148 @@ if [ "$(whoami)" != "root" ]; then
     exit 1
 fi
 
-# Function to clean up old installation files and logs
+# Define installation directory and log file
+INSTALL_DIR="/root"
+LOG_FILE="/root/ProxyList.txt"
+TARGET_URL="https://www.irctc.co.in"  # Replace with your target website
+
+# Define colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'  # No Color
+
+# Function to clean up old installation files
 cleanup_old_files() {
     echo "Cleaning up old Squid installation files..."
-
-    # Ensure we are cleaning files in the /root directory
-    cd /root || exit
-
-    # Remove old squid installation scripts and logs
-    find /root -type f -name "squid3-install.sh.*" -exec rm -f {} \;
-    rm -f /root/proxy_users.txt /root/proxy_users.log
-
+    rm -f "$INSTALL_DIR/proxy_users.txt"
+    rm -f "$INSTALL_DIR/proxy_users.log"
     echo "Old Squid installation files cleaned."
 }
 
-# Function to download and install Squid Proxy
+# Function to install Squid based on detected OS
 install_squid() {
-    echo "Checking if Squid is already installed..."
-
+    echo "Installing Squid Proxy..."
+    
+    # Check for the existence of Squid
     if [ -f /etc/squid/squid.conf ]; then
         echo "Squid is already installed. Skipping installation."
         return
     fi
 
-    echo "Downloading and installing Squid Proxy..."
-    
-    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+    # Detect the OS and proceed with installation
+    if grep -qi "ubuntu" /etc/os-release || grep -qi "debian" /etc/os-release; then
         apt update > /dev/null 2>&1
         apt -y install apache2-utils squid > /dev/null 2>&1
-    elif [[ "$OS" == "centos" || "$OS" == "almalinux" ]]; then
+        touch /etc/squid/passwd
+    elif grep -qi "centos" /etc/os-release || grep -qi "almalinux" /etc/os-release; then
         yum install squid httpd-tools wget -y > /dev/null 2>&1
+        mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
     else
-        echo "Unsupported OS for Squid installation."
+        echo "Unsupported OS. Exiting."
         exit 1
     fi
 
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Squid installation failed. Please check the logs."
-        exit 1
-    fi
+    # Finalize Squid installation
+    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid.conf
+    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
+    systemctl enable squid > /dev/null 2>&1
+    systemctl restart squid > /dev/null 2>&1
 
     echo "Squid installed successfully."
 }
 
-# Function to download supporting scripts (proxy creation, uninstall script)
-download_supporting_scripts() {
-    echo "Downloading necessary scripts..."
-
-    # Download proxy creation script
+# Function to download proxy creation script
+download_scripts() {
+    echo "Downloading proxy creation script..."
     wget -q --no-check-certificate -O /usr/bin/create-proxy https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/create-proxy.sh
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to download create-proxy. Please check your internet connection or the URL."
-        exit 1
-    fi
-    chmod 755 /usr/bin/create-proxy
+    chmod +x /usr/bin/create-proxy
 
-    # Download Squid uninstall script (optional)
-    wget -q --no-check-certificate -O /usr/bin/squid-uninstall https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-uninstall.sh
-    chmod +x /usr/bin/squid-uninstall
+    echo "Proxy creation script installed."
 }
 
-# Function to detect OS using /etc/os-release
-detect_os() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS=$(echo "$ID" | tr '[:upper:]' '[:lower:]')
-        VERSION_ID=$(echo "$VERSION_ID" | tr -d '"')
+# Function to create proxy users
+create_proxy() {
+    echo "Proxy creation started..."
+
+    # Get the server's public IP
+    SERVER_IP=$(curl -s ifconfig.me)
+
+    # Get the current time in Indian Standard Time (IST) and 12-hour format
+    CURRENT_TIME=$(TZ='Asia/Kolkata' date +"%I:%M %p %d-%m-%Y")
+
+    # Add a header to the log file with the date and time of proxy creation
+    echo -e "\nThis set of proxies was created at $CURRENT_TIME (IST)\n" >> "$LOG_FILE"
+
+    # Ask user for the mode (Manual or Automatic)
+    read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
+
+    if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
+        # Manual input mode
+        read -p "Enter Proxy username: " USERNAME
+        read -p "Enter Proxy password: " PASSWORD
+
+        # Add the user to Squid
+        htpasswd -b /etc/squid/passwd "$USERNAME" "$PASSWORD"
+
+        # Test and log the proxy
+        test_and_log_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
+
+    elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
+        # Automatic mode
+        read -p "How many proxies do you want to create? " proxy_count
+
+        if ! [[ "$proxy_count" =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
+            echo "Invalid number. Exiting."
+            exit 1
+        fi
+
+        for ((i=1; i<=proxy_count; i++)); do
+            USERNAME="user$(tr -dc a-z0-9 </dev/urandom | head -c 6)"
+            PASSWORD="pass$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8)"
+
+            # Add the user to Squid
+            htpasswd -b /etc/squid/passwd "$USERNAME" "$PASSWORD"
+
+            # Test and log the proxy
+            test_and_log_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
+
+            # Simulate delay for each proxy creation
+            sleep 3
+        done
     else
-        echo "ERROR: OS detection failed. /etc/os-release not found."
+        echo "Invalid mode selected. Exiting."
         exit 1
     fi
 
-    echo "Detected OS: $OS, Version: $VERSION_ID"
+    # Reload Squid to apply changes
+    systemctl reload squid > /dev/null 2>&1
+    echo "Proxies created and tested successfully."
 }
 
-# Main installation process
-detect_os
+# Function to test proxies and log the result
+test_and_log_proxy() {
+    local PROXY_IP=$1
+    local USERNAME=$2
+    local PASSWORD=$3
 
-# Check if Squid is installed and running
-if systemctl status squid > /dev/null 2>&1; then
-    echo -e "\nSquid Proxy is already installed. Skipping installation."
-else
-    echo "Squid Proxy is not installed. Installing now..."
-    install_squid
-fi
+    # Display testing message
+    echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing..."
 
-# Download the supporting scripts
-download_supporting_scripts
+    # Test the proxy by connecting to the target website
+    HTTP_STATUS=$(curl -x "http://$USERNAME:$PASSWORD@$PROXY_IP:3128" -s -o /dev/null -w "%{http_code}" "$TARGET_URL")
 
-# Proceed with Squid configuration based on detected OS
-echo -e "Configuring Squid on ${OS}, please wait....\n"
-
-if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
-    touch /etc/squid/passwd
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/${OS}${VERSION_ID}.conf
-    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
-    systemctl enable squid > /dev/null 2>&1
-    systemctl restart squid > /dev/null 2>&1
-
-elif [[ "$OS" == "centos" || "$OS" == "almalinux" ]]; then
-    touch /etc/squid/passwd
-    mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/conf/${OS}${VERSION_ID}.conf
-    iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
-    systemctl enable squid > /dev/null 2>&1
-    systemctl restart squid > /dev/null 2>&1
-
-    # Add firewall rules for CentOS
-    if [ -f /usr/bin/firewall-cmd ]; then
-        firewall-cmd --zone=public --permanent --add-port=3128/tcp > /dev/null 2>&1
-        firewall-cmd --reload > /dev/null 2>&1
+    if [ "$HTTP_STATUS" -eq 200 ]; then
+        echo -e " | ${GREEN}Working${NC}"
+        echo "$PROXY_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+    else
+        echo -e " | ${RED}Not Working${NC}"
     fi
-else
-    echo -e "OS NOT SUPPORTED by this script!"
-    exit 1
-fi
+}
 
-# Final message and logging
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Main script logic
+cleanup_old_files
+install_squid
+download_scripts
 
-echo -e "${NC}"
-echo -e "${GREEN}Squid Proxy successfully installed and configured on ${OS}.${NC}"
-echo -e "${CYAN}To create proxy users, run the command: create-proxy${NC}"
-echo -e "${NC}"
+echo -e "Squid installation and setup completed."
+echo -e "To create proxies, use the command: create-proxy."
