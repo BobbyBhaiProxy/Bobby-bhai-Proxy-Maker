@@ -84,36 +84,86 @@ install_squid() {
     echo "Installing Squid Proxy..."
 
     case "$SOK_OS" in
-        "ubuntu2404"|"ubuntu2204"|"ubuntu2004"|"debian10"|"debian11"|"debian12")
+        # Ubuntu versions
+        "ubuntu2404"|"ubuntu2204"|"ubuntu2004"|"ubuntu1804"|"ubuntu1604")
             apt update > /dev/null 2>&1
             apt -y install apache2-utils squid > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/ubuntu-2204.conf
             ;;
-        "centos7"|"centos8"|"centos9"|"almalinux8"|"almalinux9"|"rockylinux8"|"rockylinux9")
+
+        # Debian versions
+        "debian12")
+            apt update > /dev/null 2>&1
+            apt -y install apache2-utils squid > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/debian12.conf
+            ;;
+        "debian11")
+            apt update > /dev/null 2>&1
+            apt -y install apache2-utils squid > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/debian11.conf
+            ;;
+        "debian10")
+            apt update > /dev/null 2>&1
+            apt -y install apache2-utils squid > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/debian10.conf
+            ;;
+
+        # CentOS/AlmaLinux/RockyLinux versions
+        "centos7")
             yum install squid httpd-tools wget -y > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-centos7.conf
             ;;
+        "centos8"|"almalinux8"|"rockylinux8")
+            yum install squid httpd-tools wget -y > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-centos8.conf
+            ;;
+        "centos9"|"almalinux9"|"rockylinux9")
+            yum install squid httpd-tools wget -y > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-centos9.conf
+            ;;
+
+        # Fedora
         "fedora")
             dnf install squid httpd-tools wget -y > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-fedora.conf
             ;;
-        "archlinux")
-            pacman -S squid apache-tools --noconfirm > /dev/null 2>&1
-            ;;
+
+        # Alpine Linux
         "alpine")
             apk add squid apache2-utils > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-alpine.conf
             ;;
-        "opensuse")
+
+        # Arch Linux
+        "archlinux")
+            pacman -S squid apache-tools --noconfirm > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-archlinux.conf
+            ;;
+
+        # openSUSE
+        "opensuse15")
             zypper install squid apache2-utils -y > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-opensuse15.conf
             ;;
-        "freebsd"|"openbsd")
+
+        # FreeBSD/OpenBSD
+        "freebsd")
             pkg install squid apache2-utils -y > /dev/null 2>&1
+            wget -q --no-check-certificate -O /usr/local/etc/squid/squid.conf https://example.com/conf/squid-freebsd.conf
             ;;
+        "openbsd")
+            pkg_add squid apache2-utils > /dev/null 2>&1
+            wget -q --no-check-certificate -O /etc/squid/squid.conf https://example.com/conf/squid-openbsd.conf
+            ;;
+
+        # If OS is unsupported
         *)
             echo -e "${RED}ERROR: Unsupported OS for Squid installation. Exiting.${NC}"
             exit 1
             ;;
     esac
 
-    # Finalize Squid installation
-    wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid.conf
+    # Apply basic firewall rules and enable Squid service
     iptables -I INPUT -p tcp --dport 3128 -j ACCEPT
     systemctl enable squid > /dev/null 2>&1
     systemctl restart squid > /dev/null 2>&1
