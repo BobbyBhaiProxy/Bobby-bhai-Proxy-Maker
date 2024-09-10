@@ -32,6 +32,13 @@ install_squid() {
     echo "Downloading and installing Squid Proxy..."
     wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid3-install.sh -O squid3-install.sh
     sudo bash squid3-install.sh
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Squid installation failed. Please check the logs."
+        exit 1
+    fi
+
+    echo "Squid installed successfully."
 }
 
 # Function to download the supporting scripts (OS detection, proxy creation, uninstall script)
@@ -54,8 +61,17 @@ download_supporting_scripts() {
     chmod +x /usr/bin/squid-uninstall
 }
 
+# Function to check if Squid is installed properly
+is_squid_installed() {
+    if systemctl status squid > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Check if Squid is already installed
-if [[ -d /etc/squid/ ]]; then
+if is_squid_installed; then
     echo -e "\nSquid Proxy is already installed."
 
     # Ask the user if they want to reinstall Squid
