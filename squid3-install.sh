@@ -201,7 +201,7 @@ main() {
     # Check if Squid is already installed
     if [ -f /etc/squid/squid.conf ]; then
         echo -e "${RED}Squid is already installed.${NC}"
-        read -p "Do you want to reinstall Squid? (y/n): " reinstall_choice
+        read -p "Do you want to uninstall and reinstall Squid? (y/n): " reinstall_choice
 
         if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
             uninstall_squid
