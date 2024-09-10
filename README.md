@@ -72,8 +72,8 @@ sudo systemctl reload squid
 After adding additional IPs to your server, you can configure Squid to use them by running the following script:
 
 ```bash
-wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-conf-ip.sh
-sudo bash squid-conf-ip.sh
+wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-add-ip.sh
+sudo bash squid-add-ip.sh
 ```
 
 This will configure Squid to handle multiple IP addresses for use in the proxy server.
