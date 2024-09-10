@@ -199,7 +199,7 @@ main() {
     detect_os
 
     # Check if Squid is already installed
-    if [ -f /etc/squid/squid.conf ]; then
+    if systemctl status squid > /dev/null 2>&1; then  # Correct detection for Squid installation
         echo -e "${RED}Squid is already installed.${NC}"
         read -p "Do you want to reinstall Squid? (y/n): " reinstall_choice
 
