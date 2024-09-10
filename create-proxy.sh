@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Timeout for Testing
+# Bobby Bhai Proxy Maker with Automatic Testing and Delay
 ############################################################
 
 # Check if the script is running as root
@@ -34,7 +34,7 @@ generate_random_string() {
     tr -dc a-z0-9 </dev/urandom | head -c $length
 }
 
-# Function to test if the proxy can access the website with a 10-second timeout
+# Function to test if the proxy can access the website
 test_proxy() {
     local PROXY_IP=$1
     local USERNAME=$2
@@ -43,15 +43,15 @@ test_proxy() {
     # Display testing message
     echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing...."
 
-    # Use curl with a 10-second timeout to test if the proxy can access the target website
-    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 --max-time 10 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
+    # Use curl to test if the proxy can access the target website
+    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
 
     if [ "$HTTP_STATUS" -eq 200 ]; then
         # Show "Working" in green when the proxy is successful
         echo -e " \033[32mWorking\033[0m"
         return 0  # Success
     else
-        # Show "Not working" in red when the proxy fails or times out
+        # Show "Not working" in red when the proxy fails
         echo -e " \033[31mNot working\033[0m"
         return 1  # Failure
     fi
@@ -72,12 +72,8 @@ if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
 
-    # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD with a timestamp comment
-    echo -e "\n# This Proxy is created at $(date)" >> "$LOG_FILE"
+    # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
     echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-
-    # Test the proxy with timeout
-    test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
 
     echo "Proxy created and saved to $LOG_FILE:"
     echo "$SERVER_IP:3128:$USERNAME:$PASSWORD"
@@ -91,8 +87,8 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
         exit 1
     fi
 
-    # Log a comment indicating when these proxies were created
-    echo -e "\n# These Proxies are created at $(date)" >> "$LOG_FILE"
+    # Log the timestamp header before creating proxies
+    echo -e "\nThis set of proxies is created at $(date)" >> "$LOG_FILE"
 
     for ((i=1; i<=proxy_count; i++)); do
         # Generate a random username and password in lowercase
@@ -114,7 +110,7 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
         # Introduce a delay of 3 seconds between each proxy creation
         sleep 3
 
-        # Test the created proxy with timeout
+        # Test the created proxy
         test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
     done
 
