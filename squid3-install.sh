@@ -60,10 +60,20 @@ uninstall_squid() {
         echo -e "${GREEN}Squid successfully uninstalled.${NC}"
     else
         echo "No uninstall script found, performing manual removal."
-        if [[ "$SOK_OS" == "ubuntu" || "$SOK_OS" == "debian" ]]; then
+        if [[ "$SOK_OS" == *"ubuntu"* || "$SOK_OS" == *"debian"* ]]; then
             apt-get remove --purge squid -y
-        elif [[ "$SOK_OS" == "centos" || "$SOK_OS" == "almalinux" ]]; then
+        elif [[ "$SOK_OS" == *"centos"* || "$SOK_OS" == *"almalinux"* || "$SOK_OS" == *"rockylinux"* ]]; then
             yum remove squid -y
+        elif [[ "$SOK_OS" == *"fedora"* ]]; then
+            dnf remove squid -y
+        elif [[ "$SOK_OS" == *"archlinux"* ]]; then
+            pacman -R squid --noconfirm
+        elif [[ "$SOK_OS" == *"alpine"* ]]; then
+            apk del squid
+        elif [[ "$SOK_OS" == *"opensuse"* ]]; then
+            zypper remove squid -y
+        elif [[ "$SOK_OS" == *"freebsd"* || "$SOK_OS" == *"openbsd"* ]]; then
+            pkg delete squid -y
         fi
         echo -e "${GREEN}Squid manually removed.${NC}"
     fi
@@ -72,19 +82,35 @@ uninstall_squid() {
 # Function to install Squid based on detected OS
 install_squid() {
     echo "Installing Squid Proxy..."
-    
-    # Install Squid based on detected OS
-    if [[ "$SOK_OS" == "ubuntu2404" || "$SOK_OS" == "ubuntu2204" || "$SOK_OS" == "ubuntu2004" || "$SOK_OS" == "debian10" || "$SOK_OS" == "debian11" || "$SOK_OS" == "debian12" ]]; then
-        apt update > /dev/null 2>&1
-        apt -y install apache2-utils squid > /dev/null 2>&1
-        touch /etc/squid/passwd
-    elif [[ "$SOK_OS" == "centos7" || "$SOK_OS" == "centos8" || "$SOK_OS" == "centos9" || "$SOK_OS" == "almalinux8" || "$SOK_OS" == "almalinux9" ]]; then
-        yum install squid httpd-tools wget -y > /dev/null 2>&1
-        mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
-    else
-        echo -e "${RED}ERROR: Unsupported OS for Squid installation. Exiting.${NC}"
-        exit 1
-    fi
+
+    case "$SOK_OS" in
+        "ubuntu2404"|"ubuntu2204"|"ubuntu2004"|"debian10"|"debian11"|"debian12")
+            apt update > /dev/null 2>&1
+            apt -y install apache2-utils squid > /dev/null 2>&1
+            ;;
+        "centos7"|"centos8"|"centos9"|"almalinux8"|"almalinux9"|"rockylinux8"|"rockylinux9")
+            yum install squid httpd-tools wget -y > /dev/null 2>&1
+            ;;
+        "fedora")
+            dnf install squid httpd-tools wget -y > /dev/null 2>&1
+            ;;
+        "archlinux")
+            pacman -S squid apache-tools --noconfirm > /dev/null 2>&1
+            ;;
+        "alpine")
+            apk add squid apache2-utils > /dev/null 2>&1
+            ;;
+        "opensuse")
+            zypper install squid apache2-utils -y > /dev/null 2>&1
+            ;;
+        "freebsd"|"openbsd")
+            pkg install squid apache2-utils -y > /dev/null 2>&1
+            ;;
+        *)
+            echo -e "${RED}ERROR: Unsupported OS for Squid installation. Exiting.${NC}"
+            exit 1
+            ;;
+    esac
 
     # Finalize Squid installation
     wget -q --no-check-certificate -O /etc/squid/squid.conf https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid.conf
