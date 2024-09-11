@@ -10,14 +10,6 @@ if [ `whoami` != root ]; then
     exit 1
 fi
 
-# Log file for proxy details
-LOG_FILE="/root/ProxyList.txt"
-
-# Check if the log file exists, if not create it
-if [ ! -f "$LOG_FILE" ]; then
-    touch "$LOG_FILE"
-fi
-
 # Detect the server's public IP address
 SERVER_IP=$(curl -s ifconfig.me)
 
@@ -28,13 +20,21 @@ else
     echo "Detected Server IP: $SERVER_IP"
 fi
 
+# Log file for proxy details, named after the server IP
+LOG_FILE="/root/${SERVER_IP}.txt"
+
+# Check if the log file exists, if not create it
+if [ ! -f "$LOG_FILE" ]; then
+    touch "$LOG_FILE"
+fi
+
 # Function to generate a random string of lowercase alphabet and numbers of specified length
 generate_random_string() {
     local length=$1
     tr -dc a-z0-9 </dev/urandom | head -c $length
 }
 
-# Function to test if the proxy can access the website
+# Function to test if the proxy can access the website, with a 5-second timeout
 test_proxy() {
     local PROXY_IP=$1
     local USERNAME=$2
@@ -43,16 +43,16 @@ test_proxy() {
     # Display testing message
     echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing...."
 
-    # Use curl to test if the proxy can access the target website
-    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null -w "%{http_code}" https://www.irctc.co.in)
+    # Use curl with a 5-second timeout to test if the proxy can access the target website
+    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
 
     if [ "$HTTP_STATUS" -eq 200 ]; then
         # Show "Working" in green when the proxy is successful
         echo -e " \033[32mWorking\033[0m"
         return 0  # Success
     else
-        # Show "Not working" in red when the proxy fails
-        echo -e " \033[31mNot working\033[0m"
+        # Show "Not working" in red when the proxy fails or times out
+        echo -e " \033[31mNot working (timeout or error)\033[0m"
         return 1  # Failure
     fi
 }
