@@ -3,18 +3,27 @@
 
 [GitHub Repository](https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git)
 
-This updated version of Bobby Bhai's Squid Proxy Installer automates the installation and configuration of Squid 3 proxy on the following Linux distributions:
+This updated version of Bobby Bhai's Squid Proxy Installer automates the installation, configuration, and management of Squid Proxy with new features like **proxy expiry** and **custom IP and port management**. It supports the following Linux distributions:
 
 - **Ubuntu**: 24.04, 22.04, 20.04, 18.04
 - **Debian**: 12, 11, 10, 9, 8
 - **CentOS**: 8, Stream 9, 8
 - **AlmaLinux**: 9, 8
+- **Rocky Linux**: 9, 8
+- **Fedora**: 37, 36, 35
+
+---
+
+## New Features
+- **Proxy Expiry**: Automatically remove proxies that are older than 30 days and log their removal.
+- **Custom IP Management**: Configure proxies using multiple IPs, with options for Slot IP and Dedicated IP modes.
+- **Custom Proxy Port**: Select custom ports for proxies during configuration.
 
 ---
 
 ## Installation Instructions
 
-To install Squid Proxy, run the following commands:
+To install Squid Proxy with the new features, run the following commands:
 
 ```bash
 wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid3-install.sh
@@ -25,78 +34,88 @@ This script will:
 - Automatically detect your OS.
 - Install Squid Proxy (if not already installed).
 - Set up necessary configuration files.
-- Prompt you to create proxy users after installation.
+- Prompt you to create proxy users and choose IP restriction modes.
+- Automatically configure proxy expiry and clean-up.
 
 ---
 
 ## Create Proxy Users
 
-Once Squid is installed, you can create proxy users using the **create-proxy** script:
+After Squid is installed, you can create proxy users with the **create-proxy** script:
 
 ```bash
 sudo create-proxy
 ```
 
-The script will:
-- Prompt you to enter the number of proxies you want to create.
-- Ask for the first two segments of the IP address.
-- Automatically generate usernames, passwords, and complete IP addresses.
-- Log the proxy details (IP, Port, Username, Password) to a file for reference.
-
-### Manually Create Users (Optional)
-
-If you prefer, you can manually create proxy users with the following command:
-
-```bash
-sudo /usr/bin/htpasswd -b -c /etc/squid/passwd USERNAME_HERE PASSWORD_HERE
-```
-
-To update the password for an existing user, use:
-
-```bash
-sudo /usr/bin/htpasswd /etc/squid/passwd USERNAME_HERE
-```
-
-After creating or updating users, reload Squid Proxy to apply the changes:
-
-```bash
-sudo systemctl reload squid
-```
+This will:
+- Ask how many proxies you want to create.
+- Prompt for IP restriction mode (Slot IP or Dedicated IP).
+- Prompt for the custom proxy port (default is **3128**).
+- Generate usernames, passwords, and log proxy details (IP, Port, Username, Password) for future reference.
+- Set expiry dates for proxies (automatically removing them after 30 days).
 
 ---
 
-## Multiple IP Address Configuration
+## Expiry and Removal of Proxies
 
-> **Note**: Only needed if you have more than one IP address on your server.
+This version includes automatic proxy expiry management:
+- Proxies older than 30 days will be removed.
+- Expired proxies will be logged in `/root/<server_ip>.txt`.
+  
+To manually check for expired proxies and remove them:
 
-After adding additional IPs to your server, you can configure Squid to use them by running the following script:
+```bash
+sudo bash check-expired-proxies.sh
+```
+
+This script will:
+- Check all active proxies.
+- Remove any proxies that have exceeded 30 days.
+- Log expired proxies for your records.
+
+---
+
+## IP Restriction Options
+
+1. **Slot IP Mode**: Limits the number of proxies to **4 per IP**.
+2. **Dedicated IP Mode**: Allows creating up to **2 proxies per additional IP**.
+
+The **create-proxy** script will prompt you to select one of these modes when creating new proxies.
+
+---
+
+## Configure Multiple IP Addresses
+
+If your server has multiple IP addresses, you can configure Squid to use them for proxy connections. Follow these steps:
 
 ```bash
 wget https://raw.githubusercontent.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker/main/squid-add-ip.sh
 sudo bash squid-add-ip.sh
 ```
 
-This will configure Squid to handle multiple IP addresses for use in the proxy server.
+This script will:
+- Detect available IPs on your server.
+- Set up Squid to utilize these IPs for proxies.
 
 ---
 
 ## Change Squid Proxy Port
 
-The default Squid Proxy port is **3128**. If you wish to change the port, modify the Squid configuration file (`/etc/squid/squid.conf`):
+To change the default Squid Proxy port (3128):
 
-1. Open the file in a text editor:
+1. Open the Squid configuration file:
    ```bash
    sudo nano /etc/squid/squid.conf
    ```
 
-2. Find the line:
+2. Locate the line:
    ```bash
    http_port 3128
    ```
 
-3. Change `3128` to your desired port number and save the file.
+3. Change `3128` to your desired port.
 
-4. Reload Squid to apply the new port:
+4. Reload Squid:
    ```bash
    sudo systemctl reload squid
    ```
@@ -105,24 +124,34 @@ The default Squid Proxy port is **3128**. If you wish to change the port, modify
 
 ## Uninstall Squid
 
-To completely uninstall Squid Proxy and remove all associated configuration files, run:
+To completely remove Squid Proxy, along with its configuration and user files, run:
 
 ```bash
 sudo ./squid-uninstall.sh
 ```
 
 This script will:
-- Remove Squid Proxy and its related packages.
-- Clean up configuration files and directories.
+- Uninstall Squid Proxy.
+- Clean up all configuration files and user data related to Squid.
 
 ---
 
 ## Troubleshooting
 
-If you encounter issues or need further assistance, check the logs in `/var/log/squid/` or reload Squid Proxy for configuration issues:
+For common issues and troubleshooting:
 
-```bash
-sudo systemctl reload squid
-```
+1. **Check Squid logs**:
+   ```bash
+   sudo tail -f /var/log/squid/access.log
+   ```
 
-For support or more details, please visit the [GitHub repository](https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git).
+2. **Reload Squid** to apply new configurations:
+   ```bash
+   sudo systemctl reload squid
+   ```
+
+If you face any issues, visit the [GitHub repository](https://github.com/BobbyBhaiProxy/Bobby-bhai-Proxy-Maker.git) for further assistance or to open an issue.
+
+---
+
+This update brings advanced features like proxy expiry, custom IP modes, and enhanced management capabilities, making it easier to manage your proxy server effectively.
