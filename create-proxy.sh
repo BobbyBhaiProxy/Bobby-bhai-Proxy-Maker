@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Automatic Testing and Delay
+# Bobby Bhai Proxy Maker with Custom Port and IP Restriction
 ############################################################
 
 # Check if the script is running as root
@@ -12,7 +12,6 @@ fi
 
 # Detect the server's public IP address
 SERVER_IP=$(curl -s ifconfig.me)
-
 if [ -z "$SERVER_IP" ]; then
     echo "ERROR: Unable to detect the server IP. Please check your internet connection."
     exit 1
@@ -22,8 +21,6 @@ fi
 
 # Log file for proxy details, named after the server IP
 LOG_FILE="/root/${SERVER_IP}.txt"
-
-# Check if the log file exists, if not create it
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE"
 fi
@@ -39,85 +36,101 @@ test_proxy() {
     local PROXY_IP=$1
     local USERNAME=$2
     local PASSWORD=$3
+    local PORT=$4
 
-    # Display testing message
-    echo -ne "$PROXY_IP:3128:$USERNAME:$PASSWORD | Testing...."
-
-    # Use curl with a 5-second timeout to test if the proxy can access the target website
-    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:3128 -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
-
+    echo -ne "$PROXY_IP:$PORT:$USERNAME:$PASSWORD | Testing...."
+    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:$PORT -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
     if [ "$HTTP_STATUS" -eq 200 ]; then
-        # Show "Working" in green when the proxy is successful
         echo -e " \033[32mWorking\033[0m"
-        return 0  # Success
+        return 0
     else
-        # Show "Not working" in red when the proxy fails or times out
         echo -e " \033[31mNot working (timeout or error)\033[0m"
-        return 1  # Failure
+        return 1
     fi
 }
 
-# Ask the user to select mode: Manual (M) or Automatic (A)
+# Function to check the number of existing proxies in the log
+count_existing_proxies() {
+    grep -c "$SERVER_IP" "$LOG_FILE"
+}
+
+# Check if there are additional IPs on the server
+check_additional_ips() {
+    ip -4 addr show | grep -c inet | grep -v "$SERVER_IP"
+}
+
+# Ask the user to select the proxy mode
 read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
+read -p "Enter the custom port for the proxy (1024-65535): " custom_port
+
+if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]; then
+    echo "Invalid port number. Exiting."
+    exit 1
+fi
+
+# Ask the user to select the type of IP restriction: Slot or Dedicated
+echo "Select IP Restriction:"
+echo "1. Slot IP (max 5 proxies)"
+echo "2. Dedicated IP (up to 2 proxies per additional IP)"
+read -p "Enter your choice (1 for Slot, 2 for Dedicated): " ip_restriction
+
+if [ "$ip_restriction" -eq 1 ]; then
+    # Slot IP: Limit proxies to 5
+    existing_proxies=$(count_existing_proxies)
+    if [ "$existing_proxies" -ge 5 ]; then
+        echo "ERROR: You have reached the limit of 5 proxies on this server."
+        exit 1
+    fi
+elif [ "$ip_restriction" -eq 2 ]; then
+    # Dedicated IP: Check if additional IPs are available
+    additional_ips=$(check_additional_ips)
+    if [ "$additional_ips" -eq 0 ]; then
+        echo "No additional IPs found. You can only create 1 proxy."
+        max_proxies=1
+    else
+        echo "Additional IPs found. You can create up to 2 proxies."
+        max_proxies=2
+    fi
+else
+    echo "Invalid IP restriction choice. Exiting."
+    exit 1
+fi
 
 if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
-    # Manual input mode
     read -p "Enter Proxy username: " USERNAME
     read -p "Enter Proxy password: " PASSWORD
-
-    # Check if password file exists and add user
     if [ -f /etc/squid/passwd ]; then
         /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
     else
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
-
-    # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
-    echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-
+    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
     echo "Proxy created and saved to $LOG_FILE:"
-    echo "$SERVER_IP:3128:$USERNAME:$PASSWORD"
+    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD"
 
 elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
-    # Automatic mode
     read -p "How many proxies do you want to create? " proxy_count
 
-    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
-        echo "Invalid number of proxies. Exiting."
+    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ] || [ "$proxy_count" -gt "$max_proxies" ]; then
+        echo "Invalid number of proxies. You can only create up to $max_proxies proxies."
         exit 1
     fi
 
-    # Log the timestamp header before creating proxies
     echo -e "\nThis set of proxies is created at $(date)" >> "$LOG_FILE"
-
     for ((i=1; i<=proxy_count; i++)); do
-        # Generate a random username and password in lowercase
         USERNAME=$(generate_random_string 8)
         PASSWORD=$(generate_random_string 12)
-
         echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
-
-        # Check if password file exists and add user
         if [ -f /etc/squid/passwd ]; then
             /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
         else
             /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
         fi
-
-        # Log the created proxy in the format IP:PORT:USERNAME:PASSWORD
-        echo "$SERVER_IP:3128:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-
-        # Introduce a delay of 3 seconds between each proxy creation
+        echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
         sleep 3
-
-        # Test the created proxy
-        test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD"
+        test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
     done
-
-    # Reload Squid to apply the new proxies
-    echo "Reloading Squid to apply new configurations..."
     systemctl reload squid > /dev/null 2>&1
-
     echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
 else
     echo "Invalid mode selected. Exiting."
