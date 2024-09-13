@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Custom Port, IP Restriction, and Expiry Feature
+# Bobby Bhai Proxy Maker with Custom Port and IP Restriction
 ############################################################
 
 # Check if the script is running as root
-if [ `whoami` != root ]; then
+if [ "$(whoami)" != "root" ]; then
     echo "ERROR: You need to run the script as root or add sudo before the command."
     exit 1
 fi
@@ -28,7 +28,7 @@ fi
 # Function to generate a random string of lowercase alphabet and numbers of specified length
 generate_random_string() {
     local length=$1
-    tr -dc a-z0-9 </dev/urandom | head -c $length
+    tr -dc a-z0-9 </dev/urandom | head -c "$length"
 }
 
 # Function to test if the proxy can access the website, with a 5-second timeout
@@ -61,12 +61,9 @@ check_additional_ips() {
 
 # Function to check for expired proxies and remove them
 remove_expired_proxies() {
-    # Loop through each line in the log file to check for expired proxies
     while IFS= read -r line; do
         creation_date=$(echo "$line" | awk '{print $5}')  # Assuming date is stored at position 5 in log format
         username=$(echo "$line" | awk -F ':' '{print $3}')  # Extract username from log entry
-
-        # Calculate the difference in days from the creation date
         days_diff=$(( ( $(date +%s) - $(date -d "$creation_date" +%s) ) / 86400 ))
 
         # If the difference exceeds 30 days, remove the proxy and log the event
@@ -79,84 +76,72 @@ remove_expired_proxies() {
     done < "$LOG_FILE"
 }
 
-# Ask the user to select the proxy mode
-read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
+# Ask the user for the type of proxy (Slot IP or Dedicated IP)
+echo "Which type of proxy do you want?"
+echo "1. Slot IP"
+echo "2. Dedicated IP"
+read -p "Enter your choice (1 for Slot, 2 for Dedicated): " ip_restriction
+
+if [[ "$ip_restriction" -ne 1 && "$ip_restriction" -ne 2 ]]; then
+    echo "Invalid choice. Please enter 1 or 2."
+    exit 1
+fi
+
+# Ask the user to enter the custom port
 read -p "Enter the custom port for the proxy (1024-65535): " custom_port
 
-if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]]; then
+if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]; then
     echo "Invalid port number. Exiting."
     exit 1
 fi
 
-# Ask the user to select the type of IP restriction: Slot or Dedicated
-echo "Select IP Restriction:"
-echo "1. Slot IP (max 4 proxies)"
-echo "2. Dedicated IP (up to 2 proxies per additional IP)"
-read -p "Enter your choice (1 for Slot, 2 for Dedicated): " ip_restriction
+# Ask how many proxies to create
+read -p "How many proxies do you want to create? " proxy_count
 
-if [ "$ip_restriction" -eq 1 ]; then
-    # Slot IP: Limit proxies to 4
-    existing_proxies=$(count_existing_proxies)
-    if [ "$existing_proxies" -ge 4 ]; then
-        echo "ERROR: You have reached the limit of 4 proxies on this server."
-        exit 1
-    fi
-elif [ "$ip_restriction" -eq 2 ]; then
-    # Dedicated IP: Check if additional IPs are available
-    additional_ips=$(check_additional_ips)
-    if [ "$additional_ips" -eq 0 ]; then
-        echo "No additional IPs found. You can only create 1 proxy."
-        max_proxies=1
-    else
-        echo "Additional IPs found. You can create up to 2 proxies."
-        max_proxies=2
-    fi
-else
-    echo "Invalid IP restriction choice. Exiting."
+if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
+    echo "Invalid number of proxies. Exiting."
     exit 1
 fi
 
-if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
-    read -p "Enter Proxy username: " USERNAME
-    read -p "Enter Proxy password: " PASSWORD
+# Limit checks based on Slot IP or Dedicated IP
+existing_proxies=$(count_existing_proxies)
+
+if [ "$ip_restriction" -eq 1 ] && [ "$proxy_count" -gt 4 ]; then
+    echo "ERROR: Slot IP mode allows a maximum of 4 proxies. You requested $proxy_count proxies."
+    exit 1
+elif [ "$ip_restriction" -eq 2 ] && [ "$proxy_count" -gt 2 ]; then
+    additional_ips=$(check_additional_ips)
+    if [ "$additional_ips" -eq 0 ]; then
+        echo "ERROR: No additional IPs found. Only 1 proxy can be created in Dedicated IP mode."
+        exit 1
+    elif [ "$proxy_count" -gt 2 ]; then
+        echo "ERROR: Dedicated IP mode allows a maximum of 2 proxies per IP. You requested $proxy_count proxies."
+        exit 1
+    fi
+fi
+
+# Log the timestamp in Indian date-time format (DD-MM-YY HH:MM AM/PM) and add a single line gap
+echo -e "\nThis set of proxies is created at $(date '+%d-%m-%y %I:%M %p' --date='TZ="Asia/Kolkata"')" >> "$LOG_FILE"
+
+# Create proxies
+for ((i=1; i<=proxy_count; i++)); do
+    USERNAME=$(generate_random_string 8)
+    PASSWORD=$(generate_random_string 12)
+    echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
     if [ -f /etc/squid/passwd ]; then
         /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
     else
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
-    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD $(date '+%d-%m-%y')" >> "$LOG_FILE"  # Log creation date
-    echo "Proxy created and saved to $LOG_FILE:"
-    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD"
+    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD $(date '+%d-%m-%y')" >> "$LOG_FILE"
+    sleep 3
+    test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
+done
 
-elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
-    read -p "How many proxies do you want to create? " proxy_count
+# Reload Squid to apply the changes
+systemctl reload squid > /dev/null 2>&1
 
-    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ] || [ "$proxy_count" -gt "$max_proxies" ]]; then
-        echo "Invalid number of proxies. You can only create up to $max_proxies proxies."
-        exit 1
-    fi
-
-    # Log the timestamp in Indian date-time format (DD-MM-YY HH:MM AM/PM) and add a single line gap
-    echo -e "\nThis set of proxies is created at $(date '+%d-%m-%y %I:%M %p' --date='TZ=\"Asia/Kolkata\"')" >> "$LOG_FILE"
-    for ((i=1; i<=proxy_count; i++)); do
-        USERNAME=$(generate_random_string 8)
-        PASSWORD=$(generate_random_string 12)
-        echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
-        if [ -f /etc/squid/passwd ]; then
-            /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
-        else
-            /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
-        fi
-        echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD $(date '+%d-%m-%y')" >> "$LOG_FILE"  # Log creation date
-        sleep 3
-        test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
-    done
-    systemctl reload squid > /dev/null 2>&1
-    echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
-else
-    echo "Invalid mode selected. Exiting."
-    exit 1
-fi
+echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
 
 # Remove expired proxies after creating new ones
 remove_expired_proxies
