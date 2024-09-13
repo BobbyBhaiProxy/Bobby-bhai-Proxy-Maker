@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Custom Port and IP Restriction
+# Bobby Bhai Proxy Maker with Custom Port, IP Restriction, and Expiry Feature
 ############################################################
 
 # Check if the script is running as root
@@ -59,6 +59,26 @@ check_additional_ips() {
     ip -4 addr show | grep -c inet | grep -v "$SERVER_IP"
 }
 
+# Function to check for expired proxies and remove them
+remove_expired_proxies() {
+    # Loop through each line in the log file to check for expired proxies
+    while IFS= read -r line; do
+        creation_date=$(echo "$line" | awk '{print $5}')  # Assuming date is stored at position 5 in log format
+        username=$(echo "$line" | awk -F ':' '{print $3}')  # Extract username from log entry
+
+        # Calculate the difference in days from the creation date
+        days_diff=$(( ( $(date +%s) - $(date -d "$creation_date" +%s) ) / 86400 ))
+
+        # If the difference exceeds 30 days, remove the proxy and log the event
+        if [ "$days_diff" -gt 30 ]; then
+            echo "Proxy $username has expired. Removing it from the server."
+            /usr/bin/htpasswd -D /etc/squid/passwd "$username"  # Remove user from Squid passwd file
+            sed -i "/$username/d" "$LOG_FILE"  # Remove entry from log file
+            echo "$(date '+%d-%m-%y %I:%M %p') - Proxy $username has been removed (Expired after 30 days)." >> "$LOG_FILE"
+        fi
+    done < "$LOG_FILE"
+}
+
 # Ask the user to select the proxy mode
 read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
 read -p "Enter the custom port for the proxy (1024-65535): " custom_port
@@ -104,7 +124,7 @@ if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
     else
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
-    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD $(date '+%d-%m-%y')" >> "$LOG_FILE"  # Log creation date
     echo "Proxy created and saved to $LOG_FILE:"
     echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD"
 
@@ -117,7 +137,7 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
     fi
 
     # Log the timestamp in Indian date-time format (DD-MM-YY HH:MM AM/PM) and add a single line gap
-    echo -e "\nThis set of proxies is created at $(date '+%d-%m-%y %I:%M %p' --date='TZ="Asia/Kolkata"')" >> "$LOG_FILE"
+    echo -e "\nThis set of proxies is created at $(date '+%d-%m-%y %I:%M %p' --date='TZ=\"Asia/Kolkata\"')" >> "$LOG_FILE"
     for ((i=1; i<=proxy_count; i++)); do
         USERNAME=$(generate_random_string 8)
         PASSWORD=$(generate_random_string 12)
@@ -127,7 +147,7 @@ elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
         else
             /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
         fi
-        echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+        echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD $(date '+%d-%m-%y')" >> "$LOG_FILE"  # Log creation date
         sleep 3
         test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
     done
@@ -137,3 +157,6 @@ else
     echo "Invalid mode selected. Exiting."
     exit 1
 fi
+
+# Remove expired proxies after creating new ones
+remove_expired_proxies
