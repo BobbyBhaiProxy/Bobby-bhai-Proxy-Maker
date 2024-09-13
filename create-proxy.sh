@@ -87,12 +87,18 @@ if [[ "$ip_restriction" -ne 1 && "$ip_restriction" -ne 2 ]]; then
     exit 1
 fi
 
-# Ask the user to enter the custom port
-read -p "Enter the custom port for the proxy (1024-65535): " custom_port
+# Ask if the user wants a custom port or not
+read -p "Would you like to use a custom port? (y/n): " use_custom_port
 
-if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]; then
-    echo "Invalid port number. Exiting."
-    exit 1
+if [[ "$use_custom_port" == "y" || "$use_custom_port" == "Y" ]]; then
+    read -p "Enter the custom port for the proxy (1024-65535): " custom_port
+    if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]; then
+        echo "Invalid port number. Exiting."
+        exit 1
+    fi
+else
+    custom_port=3128  # Default port
+    echo "Using default port 3128."
 fi
 
 # Ask how many proxies to create
@@ -133,7 +139,7 @@ for ((i=1; i<=proxy_count; i++)); do
     else
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
-    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD $(date '+%d-%m-%y')" >> "$LOG_FILE"
+    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD >> "$LOG_FILE"
     sleep 3
     test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
 done
