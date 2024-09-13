@@ -63,22 +63,22 @@ check_additional_ips() {
 read -p "Select Mode (M for Manual, A for Automatic): " mode_choice
 read -p "Enter the custom port for the proxy (1024-65535): " custom_port
 
-if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]; then
+if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]]; then
     echo "Invalid port number. Exiting."
     exit 1
 fi
 
 # Ask the user to select the type of IP restriction: Slot or Dedicated
 echo "Select IP Restriction:"
-echo "1. Slot IP (max 5 proxies)"
+echo "1. Slot IP (max 4 proxies)"
 echo "2. Dedicated IP (up to 2 proxies per additional IP)"
 read -p "Enter your choice (1 for Slot, 2 for Dedicated): " ip_restriction
 
 if [ "$ip_restriction" -eq 1 ]; then
-    # Slot IP: Limit proxies to 5
+    # Slot IP: Limit proxies to 4
     existing_proxies=$(count_existing_proxies)
-    if [ "$existing_proxies" -ge 5 ]; then
-        echo "ERROR: You have reached the limit of 5 proxies on this server."
+    if [ "$existing_proxies" -ge 4 ]; then
+        echo "ERROR: You have reached the limit of 4 proxies on this server."
         exit 1
     fi
 elif [ "$ip_restriction" -eq 2 ]; then
@@ -111,12 +111,13 @@ if [[ "$mode_choice" == "M" || "$mode_choice" == "m" ]]; then
 elif [[ "$mode_choice" == "A" || "$mode_choice" == "a" ]]; then
     read -p "How many proxies do you want to create? " proxy_count
 
-    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ] || [ "$proxy_count" -gt "$max_proxies" ]; then
+    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ] || [ "$proxy_count" -gt "$max_proxies" ]]; then
         echo "Invalid number of proxies. You can only create up to $max_proxies proxies."
         exit 1
     fi
 
-    echo -e "\nThis set of proxies is created at $(date)" >> "$LOG_FILE"
+    # Log the timestamp in Indian date-time format (DD-MM-YY HH:MM AM/PM) and add a single line gap
+    echo -e "\nThis set of proxies is created at $(date '+%d-%m-%y %I:%M %p' --date='TZ="Asia/Kolkata"')" >> "$LOG_FILE"
     for ((i=1; i<=proxy_count; i++)); do
         USERNAME=$(generate_random_string 8)
         PASSWORD=$(generate_random_string 12)
