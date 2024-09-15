@@ -4,6 +4,9 @@
 # Bobby Bhai Proxy Maker with Custom Port and IP Restriction
 ############################################################
 
+# Configuration file to store the chosen mode
+CONFIG_FILE="/root/proxy_mode.conf"
+
 # Check if the script is running as root
 if [ "$(whoami)" != "root" ]; then
     echo "ERROR: You need to run the script as root or add sudo before the command."
@@ -76,7 +79,34 @@ remove_expired_proxies() {
     done < "$LOG_FILE"
 }
 
+# Function to initialize or check the proxy mode
+initialize_or_check_mode() {
+    if [ -f "$CONFIG_FILE" ]; then
+        stored_mode=$(cat "$CONFIG_FILE")
+        if [ "$stored_mode" -ne "$ip_restriction" ]; then
+            echo "ERROR: Proxy mode has already been set to $stored_mode. You cannot switch modes."
+            exit 1
+        fi
+    else
+        echo "$ip_restriction" > "$CONFIG_FILE"
+    fi
+}
+
 # Ask the user for the type of proxy (Slot IP or Dedicated IP)
+if [ -f "$CONFIG_FILE" ]; then
+    echo "Proxy mode has already been set. You cannot change it."
+    stored_mode=$(cat "$CONFIG_FILE")
+    if [ "$stored_mode" -eq 1 ]; then
+        echo "Current mode: Slot IP"
+    elif [ "$stored_mode" -eq 2 ]; then
+        echo "Current mode: Dedicated IP"
+    else
+        echo "ERROR: Invalid mode in configuration file."
+        exit 1
+    fi
+    exit 0
+fi
+
 echo "Which type of proxy do you want?"
 echo "1. Slot IP"
 echo "2. Dedicated IP"
@@ -86,6 +116,8 @@ if [[ "$ip_restriction" -ne 1 && "$ip_restriction" -ne 2 ]]; then
     echo "Invalid choice. Please enter 1 or 2."
     exit 1
 fi
+
+initialize_or_check_mode
 
 # Ask if the user wants a custom port or not
 read -p "Would you like to use a custom port? (y/n): " use_custom_port
