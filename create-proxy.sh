@@ -56,7 +56,7 @@ count_existing_proxies() {
 
 # Check if there are additional IPs on the server
 check_additional_ips() {
-    ip -4 addr show | grep -c inet | grep -v "$SERVER_IP"
+    ip -4 addr show | grep inet | grep -v "$SERVER_IP" | grep -v '127.0.0.1' | wc -l
 }
 
 # Function to check for expired proxies and remove them
@@ -127,7 +127,7 @@ elif [ "$ip_restriction" -eq 2 ] && [ "$proxy_count" -gt 2 ]; then
 fi
 
 # Log the timestamp in Indian date-time format (DD-MM-YY HH:MM AM/PM) and add a single line gap
-echo -e "\nThis set of proxies is created at $(date '+%d-%m-%y %I:%M %p' --date='TZ="Asia/Kolkata"')" >> "$LOG_FILE"
+echo -e "\nThis set of proxies is created at $(TZ='Asia/Kolkata' date '+%d-%m-%y %I:%M %p')" >> "$LOG_FILE"
 
 # Create proxies
 for ((i=1; i<=proxy_count; i++)); do
@@ -139,7 +139,8 @@ for ((i=1; i<=proxy_count; i++)); do
     else
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
-    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD >> "$LOG_FILE"
+    # Corrected the echo line to properly write to the log file
+    echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
     sleep 3
     test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
 done
@@ -147,7 +148,7 @@ done
 # Reload Squid to apply the changes
 systemctl reload squid > /dev/null 2>&1
 
-echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-
 # Remove expired proxies after creating new ones
 remove_expired_proxies
+
+echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
