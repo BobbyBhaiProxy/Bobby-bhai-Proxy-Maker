@@ -147,7 +147,7 @@ done
 # Reload Squid to apply the changes
 systemctl reload squid > /dev/null 2>&1
 
-echo -e "\033[32m$proxy_count proxies created and saved to $LOG_FILE\033[0m"
+echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
 
 # Remove expired proxies after creating new ones
 remove_expired_proxies
