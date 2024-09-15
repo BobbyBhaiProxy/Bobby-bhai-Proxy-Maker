@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Custom Port and IP Restriction
+# Bobby Bhai Proxy Maker with Fixed Port and IP Restriction
 ############################################################
 
 # Configuration file to store the chosen mode
@@ -67,7 +67,16 @@ remove_expired_proxies() {
     while IFS= read -r line; do
         creation_date=$(echo "$line" | awk '{print $5}')  # Assuming date is stored at position 5 in log format
         username=$(echo "$line" | awk -F ':' '{print $3}')  # Extract username from log entry
-        days_diff=$(( ( $(date +%s) - $(date -d "$creation_date" +%s) ) / 86400 ))
+
+        # Convert creation_date to seconds since epoch
+        creation_timestamp=$(date -d "$creation_date" +%s 2>/dev/null)
+        if [ -z "$creation_timestamp" ]; then
+            echo "ERROR: Invalid date format in log file: $creation_date"
+            continue
+        fi
+        
+        # Calculate the number of days since creation
+        days_diff=$(( ( $(date +%s) - $creation_timestamp ) / 86400 ))
 
         # If the difference exceeds 30 days, remove the proxy and log the event
         if [ "$days_diff" -gt 30 ]; then
@@ -119,19 +128,9 @@ fi
 
 initialize_or_check_mode
 
-# Ask if the user wants a custom port or not
-read -p "Would you like to use a custom port? (y/n): " use_custom_port
-
-if [[ "$use_custom_port" == "y" || "$use_custom_port" == "Y" ]]; then
-    read -p "Enter the custom port for the proxy (1024-65535): " custom_port
-    if [[ ! "$custom_port" =~ ^[0-9]+$ ]] || [ "$custom_port" -lt 1024 ] || [ "$custom_port" -gt 65535 ]; then
-        echo "Invalid port number. Exiting."
-        exit 1
-    fi
-else
-    custom_port=3128  # Default port
-    echo "Using default port 3128."
-fi
+# Fixed port
+custom_port=3128
+echo "Using default port 3128."
 
 # Ask how many proxies to create
 read -p "How many proxies do you want to create? " proxy_count
