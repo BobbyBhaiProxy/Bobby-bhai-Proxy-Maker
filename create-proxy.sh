@@ -146,13 +146,13 @@ existing_proxies=$(count_existing_proxies)
 if [ "$ip_restriction" -eq 1 ] && [ "$proxy_count" -gt 2 ]; then
     echo "ERROR: Slot IP mode allows a maximum of 2 proxies. You requested $proxy_count proxies."
     exit 1
-elif [ "$ip_restriction" -eq 2 ] && [ "$proxy_count" -gt 2 ]; then
+elif [ "$ip_restriction" -eq 2 ] && [ "$proxy_count" -gt 4 ]; then
     additional_ips=$(check_additional_ips)
     if [ "$additional_ips" -eq 0 ]; then
         echo "ERROR: No additional IPs found. Only 1 proxy can be created in Dedicated IP mode."
         exit 1
     elif [ "$proxy_count" -gt 2 ]; then
-        echo "ERROR: Dedicated IP mode allows a maximum of 2 proxies per IP. You requested $proxy_count proxies."
+        echo "ERROR: Dedicated IP mode allows a maximum of 4 proxies per IP. You requested $proxy_count proxies."
         exit 1
     fi
 fi
