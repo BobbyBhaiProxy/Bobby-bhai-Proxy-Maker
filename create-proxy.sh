@@ -151,8 +151,8 @@ elif [ "$ip_restriction" -eq 2 ] && [ "$proxy_count" -gt 2 ]; then
     if [ "$additional_ips" -eq 0 ]; then
         echo "ERROR: No additional IPs found. Only 1 proxy can be created in Dedicated IP mode."
         exit 1
-    elif [ "$proxy_count" -gt 2 ]; then
-        echo "ERROR: Dedicated IP mode allows a maximum of 1 proxies per IP. You requested $proxy_count proxies."
+    elif [ "$proxy_count" -gt 1 ]; then
+        echo "ERROR: Dedicated IP mode allows a maximum of 1 proxy per IP. You requested $proxy_count proxies."
         exit 1
     fi
 fi
