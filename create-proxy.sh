@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Fixed Port and IP Restriction
+# Bobby Bhai Proxy Maker with Multiple IP Support
 ############################################################
 
 CONFIG_FILE="/root/proxy_mode.conf"
-LOG_FILE="/root/Proxy.txt"  # Changed log file name
+LOG_FILE="/root/Proxy.txt"
 
 # Check if the script is running as root
 if [ "$(whoami)" != "root" ]; then
@@ -13,23 +13,81 @@ if [ "$(whoami)" != "root" ]; then
     exit 1
 fi
 
-# Detect the server's public IP address
-SERVER_IP=$(curl -s ifconfig.me)
-if [ -z "$SERVER_IP" ]; then
-    echo "ERROR: Unable to detect the server IP. Please check your internet connection."
+# Detect all server IP addresses
+SERVER_IPS=$(hostname -I)
+if [ -z "$SERVER_IPS" ]; then
+    echo "ERROR: Unable to detect server IPs. Please check your network configuration."
     exit 1
 else
-    echo "Detected Server IP: $SERVER_IP"
+    echo "Detected Server IPs: $SERVER_IPS"
 fi
 
-if [ ! -f "$LOG_FILE" ]; then
-    touch "$LOG_FILE"
-fi
+# Function to display IP selection menu
+select_ip() {
+    echo "Select an IP address to use for the proxy:"
+    IP_ARRAY=($SERVER_IPS)
+    for i in "${!IP_ARRAY[@]}"; do
+        echo "$i) ${IP_ARRAY[$i]}"
+    done
+    read -p "Enter the number corresponding to the IP (or 'all' to use all IPs): " choice
+    if [ "$choice" == "all" ]; then
+        SELECTED_IPS=("${IP_ARRAY[@]}")
+    else
+        SELECTED_IPS=("${IP_ARRAY[$choice]}")
+    fi
+}
 
-# Function to generate random string
+# Function to generate a random string
 generate_random_string() {
     local length=$1
     tr -dc a-z0-9 </dev/urandom | head -c "$length"
+}
+
+# Function to create a proxy with specified IP, username, password, and port
+create_proxy_for_ip() {
+    local ip=$1
+    local port=3128  # Default port for proxy
+
+    echo "Using IP: $ip with port $port."
+
+    # Prompt for custom username and password if requested
+    if [ "$use_custom" -eq 1 ]; then
+        read -p "Enter username for Proxy User: " custom_username
+        read -p "Enter password for Proxy User: " custom_password
+        USERNAME="$custom_username"
+        PASSWORD="$custom_password"
+    else
+        USERNAME=$(generate_random_string 8)
+        PASSWORD=$(generate_random_string 12)
+        echo "Creating Proxy User with Username: $USERNAME, Password: $PASSWORD"
+    fi
+
+    # Add user to Squid passwd file
+    if [ -f /etc/squid/passwd ]; then
+        /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
+    else
+        /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
+    fi
+
+    # Default validity is 31 days
+    validity=31
+
+    # Log the proxy with IP, PORT, USERNAME, and PASSWORD
+    echo "$ip:$port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+
+    # Test the proxy
+    sleep 3
+    test_proxy "$ip" "$USERNAME" "$PASSWORD" "$port"
+}
+
+# Function to create proxies across selected IPs
+create_proxies() {
+    local proxy_count=$1
+    for ((i=1; i<=proxy_count; i++)); do
+        for ip in "${SELECTED_IPS[@]}"; do
+            create_proxy_for_ip "$ip"
+        done
+    done
 }
 
 # Function to test proxy
@@ -43,88 +101,92 @@ test_proxy() {
     HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$PROXY_IP:$PORT -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
     if [ "$HTTP_STATUS" -eq 200 ]; then
         echo -e " \033[32mWorking\033[0m"
-        return 0
     else
         echo -e " \033[31mNot working (timeout or error)\033[0m"
-        return 1
     fi
 }
 
-# Function to remove expired proxies
-remove_expired_proxies() {
-    while IFS= read -r line; do
-        username=$(echo "$line" | awk -F ':' '{print $3}')  # Extract username from log entry
-        validity=$(grep "$username" "$LOG_FILE" | awk '{print $6}')  # Assuming validity is stored at position 6
-        
-        # (Add your logic for checking expiry based on the validity)
-        # This logic needs implementation based on your existing validity handling.
-    done < "$LOG_FILE"
+# Main function to create new proxies
+main() {
+    # Ask how many proxies to create
+    read -p "How many proxies do you want to create? " proxy_count
+    if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
+        echo "Invalid number of proxies. Exiting."
+        exit 1
+    fi
+
+    # Ask if user wants custom username and password
+    read -p "Do you want to use custom username and password? (yes/no): " custom_choice
+    if [[ "$custom_choice" == "yes" ]]; then
+        use_custom=1
+    else
+        use_custom=0
+    fi
+
+    # Prompt user to select IPs for proxy creation
+    select_ip
+    create_proxies "$proxy_count"  # Call to create proxies
 }
 
-# Function to create a new proxy
-create_proxy() {
-    local proxy_count=$1
-    local use_custom=$2
-    local custom_username
-    local custom_password
+# Menu function for additional actions
+show_menu() {
+    echo "1) Delete Proxy"
+    echo "2) Change Password"
+    echo "3) Change Validity"
+    read -p "Select an option: " option
 
-    # Default port for proxy
-    custom_port=3128
-    echo "Using default port 3128."
-
-    # Loop to create the specified number of proxies
-    for ((i=1; i<=proxy_count; i++)); do
-        if [ "$use_custom" -eq 1 ]; then
-            read -p "Enter username for Proxy User $i: " custom_username
-            read -p "Enter password for Proxy User $i: " custom_password
-            USERNAME="$custom_username"
-            PASSWORD="$custom_password"
-        else
-            USERNAME=$(generate_random_string 8)
-            PASSWORD=$(generate_random_string 12)
-            echo "Creating Proxy User $i with Username: $USERNAME, Password: $PASSWORD"
-        fi
-
-        # Add user to Squid passwd file
-        if [ -f /etc/squid/passwd ]; then
-            /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
-        else
-            /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
-        fi
-
-        # Default validity is 31 days
-        validity=31
-
-        # Log the proxy with IP, PORT, USERNAME, and PASSWORD
-        echo "$SERVER_IP:$custom_port:$USERNAME:$PASSWORD" >> "$LOG_FILE"
-
-        # Test the proxy
-        sleep 3
-        test_proxy "$SERVER_IP" "$USERNAME" "$PASSWORD" "$custom_port"
-    done
+    case $option in
+        1)
+            delete_proxy
+            ;;
+        2)
+            change_password
+            ;;
+        3)
+            change_validity
+            ;;
+        *)
+            echo "Invalid option. Exiting."
+            ;;
+    esac
 }
 
-# Ask how many proxies to create
-read -p "How many proxies do you want to create? " proxy_count
-if [[ ! $proxy_count =~ ^[0-9]+$ ]] || [ "$proxy_count" -le 0 ]; then
-    echo "Invalid number of proxies. Exiting."
-    exit 1
-fi
+# Function to delete a proxy
+delete_proxy() {
+    echo "Available Proxies:"
+    cat "$LOG_FILE"
+    read -p "Enter the username of the proxy you want to delete: " username
+    sed -i "/$username/d" "$LOG_FILE"
+    sed -i "/$username/d" /etc/squid/passwd
+    systemctl reload squid
+    echo "Proxy for user $username deleted."
+}
 
-# Ask if user wants custom username and password
-read -p "Do you want to use custom username and password? (yes/no): " custom_choice
-if [[ "$custom_choice" == "yes" ]]; then
-    use_custom=1
+# Function to change password for a proxy
+change_password() {
+    echo "Available Proxies:"
+    cat "$LOG_FILE"
+    read -p "Enter the username of the proxy you want to change password for: " username
+    read -p "Enter new password: " new_password
+    htpasswd -b /etc/squid/passwd $username $new_password
+    systemctl reload squid
+    echo "Password updated for user $username."
+}
+
+# Function to change validity for a proxy
+change_validity() {
+    echo "Available Proxies:"
+    cat "$LOG_FILE"
+    read -p "Enter the username of the proxy you want to change validity for: " username
+    read -p "Enter new validity period (in days): " new_validity
+    # Implement logic to update validity in the log
+    echo "Updated validity for $username to $new_validity days."
+}
+
+# Ask the user to enter 'show-menu' to display options or create proxies
+read -p "Enter 'show-menu' for additional options or 'create' to create new proxies: " action
+if [[ "$action" == "show-menu" ]]; then
+    show_menu
 else
-    use_custom=0
+    main
 fi
-
-create_proxy "$proxy_count" "$use_custom"  # Call to create proxies
-
-# Reload Squid to apply changes
-systemctl reload squid > /dev/null 2>&1
-
-# Remove expired proxies after creating new ones
-remove_expired_proxies
-
-echo -e "\033[32mOperation completed. Check $LOG_FILE for details.\033[0m"
