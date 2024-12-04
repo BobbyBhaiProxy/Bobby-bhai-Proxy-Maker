@@ -7,6 +7,7 @@
 CONFIG_FILE="/root/proxy_mode.conf"
 LOG_FILE="/root/Proxy.txt"
 BACKUP_FILE="/root/proxy_backup.txt"
+SAVED_PROXIES_FILE="/root/saved_proxies.txt"
 
 # Check if the script is running as root
 if [ "$(whoami)" != "root" ]; then
@@ -17,23 +18,23 @@ fi
 # Function to display the menu
 show_menu() {
     echo "1) create-proxy - Create New Proxy"
-    echo "2) change-password - Change Proxy Password"
-    echo "3) backup-data - Backup Proxy Data"
-    echo "4) restore-data - Restore Proxy Data"
-    read -p "Select an option: " option
+    echo "2) backup-proxies - Backup All Proxies"
+    echo "3) restore-proxies - Restore Proxies"
+    echo "4) replacement - Replace Existing Proxy"
+    read -p "Select an option by entering 1, 2, 3, or 4: " option
 
     case $option in
         1)
             create_proxy
             ;;
         2)
-            change_password
+            backup_proxies
             ;;
         3)
-            backup_data
+            restore_proxies
             ;;
         4)
-            restore_data
+            replacement
             ;;
         *)
             echo "Invalid option. Exiting."
@@ -43,14 +44,14 @@ show_menu() {
 
 # Function to create a new proxy
 create_proxy() {
-    # Check if the maximum of 5 IPs is already created
+    # Ensure we don't exceed 5 proxies
     proxy_count=$(grep -c "Proxy" "$LOG_FILE")
     if [ "$proxy_count" -ge 5 ]; then
         echo "ERROR: Maximum of 5 proxies already created. Cannot create more."
         exit 1
     fi
 
-    # Ask if user wants custom username and password
+    # Ask for custom username and password or generate random ones
     read -p "Do you want to use custom username and password? (yes/no): " custom_choice
     if [[ "$custom_choice" == "yes" ]]; then
         use_custom=1
@@ -68,6 +69,13 @@ create_proxy() {
         read -p "Enter password for Proxy User: " PASSWORD
     fi
 
+    # Ask for the number of days the proxy should be valid
+    read -p "How many days do you want the proxy to remain valid? " validity
+    if [[ ! $validity =~ ^[0-9]+$ ]] || [ "$validity" -le 0 ]; then
+        echo "Invalid number of days. Exiting."
+        exit 1
+    fi
+
     # Add user to Squid passwd file
     if [ -f /etc/squid/passwd ]; then
         /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
@@ -75,8 +83,11 @@ create_proxy() {
         /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
     fi
 
-    # Log the proxy with USERNAME and PASSWORD
-    echo "Proxy created with Username: $USERNAME, Password: $PASSWORD" >> "$LOG_FILE"
+    # Log the proxy with USERNAME, PASSWORD, VALIDITY
+    echo "Proxy created with Username: $USERNAME, Password: $PASSWORD, Validity: $validity days" >> "$LOG_FILE"
+
+    # Save the proxy data in persistent file for future re-creation
+    echo "$USERNAME:$PASSWORD:$validity" >> "$SAVED_PROXIES_FILE"
 
     # Test the proxy by calling a website to confirm it's working
     sleep 3
@@ -104,48 +115,84 @@ test_proxy() {
     fi
 }
 
-# Function to change password for an existing proxy
-change_password() {
-    echo "Available Proxies:"
-    cat "$LOG_FILE"
-    read -p "Enter the username of the proxy you want to change password for: " username
-    read -p "Enter new password: " new_password
-    htpasswd -b /etc/squid/passwd $username $new_password
-    systemctl reload squid
-    echo "Password updated for user $username."
-}
-
-# Function to back up proxy data
-backup_data() {
-    echo "Backing up proxy data..."
-    cp "$LOG_FILE" "$BACKUP_FILE"
+# Function to back up all proxy data
+backup_proxies() {
+    echo "Backing up all proxies..."
+    cp "$SAVED_PROXIES_FILE" "$BACKUP_FILE"
     echo "Backup saved to $BACKUP_FILE"
 }
 
 # Function to restore proxy data from backup
-restore_data() {
+restore_proxies() {
     if [ -f "$BACKUP_FILE" ]; then
-        cp "$BACKUP_FILE" "$LOG_FILE"
+        cp "$BACKUP_FILE" "$SAVED_PROXIES_FILE"
         echo "Restored proxy data from backup."
     else
         echo "Backup file not found. No data to restore."
     fi
 }
 
+# Function to replace an existing proxy
+replacement() {
+    echo "Available Proxies:"
+    cat "$SAVED_PROXIES_FILE"
+    read -p "Enter the username of the proxy you want to replace: " old_username
+
+    # Ask for new credentials
+    read -p "Enter new username for Proxy: " new_username
+    read -p "Enter new password for Proxy: " new_password
+    read -p "How many days do you want the proxy to remain valid? " validity
+
+    # Replace the old proxy in Squid passwd file
+    htpasswd -b /etc/squid/passwd $new_username $new_password
+    sed -i "/$old_username/d" "$SAVED_PROXIES_FILE"
+    
+    # Log the new proxy with USERNAME, PASSWORD, VALIDITY
+    echo "$new_username:$new_password:$validity" >> "$SAVED_PROXIES_FILE"
+
+    # Update proxy log
+    echo "Proxy replaced with Username: $new_username, Password: $new_password, Validity: $validity days" >> "$LOG_FILE"
+
+    systemctl reload squid
+    echo "Proxy for user $old_username replaced with $new_username."
+}
+
+# Function to delete all proxy files before installation
+cleanup() {
+    echo "Cleaning up old proxy files before installation..."
+    rm -f "$LOG_FILE" "$SAVED_PROXIES_FILE" "$BACKUP_FILE"
+    echo "Old proxy files deleted successfully."
+}
+
+# Function to delete the script itself after execution
+cleanup_script() {
+    echo "Deleting script after execution..."
+    rm -f "$0"
+}
+
 # Main function to create proxy or show menu
 main() {
-    read -p "Enter 'show-menu' to view available options or 'create-proxy' to create a proxy: " action
-    case $action in
-        "show-menu")
-            show_menu
-            ;;
-        "create-proxy")
-            create_proxy
-            ;;
-        *)
-            echo "Invalid command. Please enter 'show-menu' or 'create-proxy'."
-            ;;
-    esac
+    # Clean up old files before starting
+    cleanup
+
+    # Ask for the user's action
+    clear
+    echo "Choose an option to proceed:"
+    echo "1) Show Menu"
+    echo "2) Create Proxy"
+
+    read -p "Enter 1 to Show Menu or 2 to Create Proxy: " action
+    if [ "$action" -eq 1 ]; then
+        show_menu
+    elif [ "$action" -eq 2 ]; then
+        create_proxy
+    else
+        echo "Invalid option. Exiting."
+        exit 1
+    fi
+
+    # Clean up after the script is done
+    cleanup_script
 }
 
 # Run the main function
