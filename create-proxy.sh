@@ -69,22 +69,21 @@ create_proxy() {
         read -p "Enter password for Proxy User: " PASSWORD
     fi
 
-    # Ask for the number of days the proxy should be valid
-    read -p "How many days do you want the proxy to remain valid? " validity
-    if [[ ! $validity =~ ^[0-9]+$ ]] || [ "$validity" -le 0 ]; then
-        echo "Invalid number of days. Exiting."
-        exit 1
-    fi
-
-    # Add user to Squid passwd file
-    if [ -f /etc/squid/passwd ]; then
-        /usr/bin/htpasswd -b /etc/squid/passwd $USERNAME $PASSWORD
+    # Set default validity to 31 days for new proxies
+    validity=31
+    read -p "How many days do you want the proxy to remain valid? (default 31): " custom_validity
+    if [[ ! $custom_validity =~ ^[0-9]+$ ]] || [ "$custom_validity" -le 0 ]; then
+        validity=31
     else
-        /usr/bin/htpasswd -b -c /etc/squid/passwd $USERNAME $PASSWORD
+        validity=$custom_validity
     fi
 
-    # Log the proxy with USERNAME, PASSWORD, VALIDITY
-    echo "Proxy created with Username: $USERNAME, Password: $PASSWORD, Validity: $validity days" >> "$LOG_FILE"
+    # Generate a random IP address (as placeholder, replace it with actual IP)
+    IP="139.84.209.176"
+    PORT="3128"
+
+    # Log the proxy in the specified format: IP:PORT:username:password
+    echo "$IP:$PORT:$USERNAME:$PASSWORD" >> "$LOG_FILE"
 
     # Save the proxy data in persistent file for future re-creation
     echo "$USERNAME:$PASSWORD:$validity" >> "$SAVED_PROXIES_FILE"
@@ -92,6 +91,9 @@ create_proxy() {
     # Test the proxy by calling a website to confirm it's working
     sleep 3
     test_proxy "$USERNAME" "$PASSWORD"
+
+    # After creating the proxy, show the menu again
+    show_menu
 }
 
 # Function to generate a random string for usernames and passwords
@@ -155,6 +157,9 @@ replacement() {
 
     systemctl reload squid
     echo "Proxy for user $old_username replaced with $new_username."
+
+    # After replacement, show the menu again
+    show_menu
 }
 
 # Function to delete all proxy files before installation
