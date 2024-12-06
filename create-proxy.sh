@@ -18,23 +18,15 @@ fi
 # Function to display the menu
 show_menu() {
     echo "1) create-proxy - Create New Proxy"
-    echo "2) backup-proxies - Backup All Proxies"
-    echo "3) restore-proxies - Restore Proxies"
-    echo "4) replacement - Replace Existing Proxy"
-    read -p "Select an option by entering 1, 2, 3, or 4: " option
+    echo "2) replace-validity - Replace Validity of Existing Proxy"
+    read -p "Select an option by entering 1 or 2: " option
 
     case $option in
         1)
             create_proxy
             ;;
         2)
-            backup_proxies
-            ;;
-        3)
-            restore_proxies
-            ;;
-        4)
-            replacement
+            replace_validity
             ;;
         *)
             echo "Invalid option. Exiting."
@@ -51,48 +43,51 @@ create_proxy() {
         exit 1
     fi
 
-    # Ask for custom username and password or generate random ones
-    read -p "Do you want to use custom username and password? (yes/no): " custom_choice
-    if [[ "$custom_choice" == "yes" ]]; then
-        use_custom=1
-    else
-        use_custom=0
-    fi
+    # Ask for how many proxies the user wants to create
+    read -p "How many proxies do you want to create? " proxy_count
+    for ((i=1; i<=proxy_count; i++)); do
+        # Ask for custom username and password or generate random ones
+        read -p "Do you want to use a custom username and password for proxy $i? (yes/no): " custom_choice
+        if [[ "$custom_choice" == "yes" ]]; then
+            use_custom=1
+        else
+            use_custom=0
+        fi
 
-    # Generate a random username and password if custom is not selected
-    if [ "$use_custom" -eq 0 ]; then
-        USERNAME=$(generate_random_string 8)
-        PASSWORD=$(generate_random_string 12)
-        echo "Generated Proxy User with Username: $USERNAME, Password: $PASSWORD"
-    else
-        read -p "Enter username for Proxy User: " USERNAME
-        read -p "Enter password for Proxy User: " PASSWORD
-    fi
+        # Generate a random username and password if custom is not selected
+        if [ "$use_custom" -eq 0 ]; then
+            USERNAME=$(generate_random_string 8)
+            PASSWORD=$(generate_random_string 12)
+            echo "Generated Proxy User with Username: $USERNAME, Password: $PASSWORD"
+        else
+            read -p "Enter username for Proxy $i: " USERNAME
+            read -p "Enter password for Proxy $i: " PASSWORD
+        fi
 
-    # Set default validity to 31 days for new proxies
-    validity=31
-    read -p "How many days do you want the proxy to remain valid? (default 31): " custom_validity
-    if [[ ! $custom_validity =~ ^[0-9]+$ ]] || [ "$custom_validity" -le 0 ]; then
-        validity=31
-    else
-        validity=$custom_validity
-    fi
+        # Ask for custom validity (between 1 and 31 days)
+        read -p "Enter validity (1-31 days) for Proxy $i: " validity
+        if [[ ! $validity =~ ^[0-9]+$ ]] || [ "$validity" -lt 1 ] || [ "$validity" -gt 31 ]; then
+            echo "Invalid validity period. Setting validity to 31 days."
+            validity=31
+        fi
 
-    # Generate a random IP address (as placeholder, replace it with actual IP)
-    IP="139.84.209.176"
-    PORT="3128"
+        # Generate a random IP address (as placeholder, replace it with actual IP)
+        IP="139.84.209.176"
+        PORT="3128"
 
-    # Log the proxy in the specified format: IP:PORT:username:password
-    echo "$IP:$PORT:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+        # Log the proxy in the specified format: IP:PORT:USERNAME:PASSWORD
+        echo "$IP:$PORT:$USERNAME:$PASSWORD" >> "$LOG_FILE"
 
-    # Save the proxy data in persistent file for future re-creation
-    echo "$USERNAME:$PASSWORD:$validity" >> "$SAVED_PROXIES_FILE"
+        # Save the proxy data in persistent file for future re-creation
+        echo "$USERNAME:$PASSWORD:$validity" >> "$SAVED_PROXIES_FILE"
 
-    # Test the proxy by calling a website to confirm it's working
-    sleep 3
-    test_proxy "$USERNAME" "$PASSWORD"
+        # Test the proxy by calling a website to confirm it's working
+        sleep 3
+        test_proxy "$IP" "$PORT" "$USERNAME" "$PASSWORD"
 
-    # After creating the proxy, show the menu again
+    done
+
+    # After creating the proxies, show the menu again
     show_menu
 }
 
@@ -104,12 +99,18 @@ generate_random_string() {
 
 # Function to test if proxy is working
 test_proxy() {
-    local USERNAME=$1
-    local PASSWORD=$2
-    local PORT=3128
+    local IP=$1
+    local PORT=$2
+    local USERNAME=$3
+    local PASSWORD=$4
 
-    echo -ne "Testing proxy: $USERNAME:$PASSWORD | Testing...."
-    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@127.0.0.1:$PORT -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
+    # Display the full proxy information during the test
+    echo -ne "Testing proxy: $IP:$PORT:$USERNAME:$PASSWORD | Testing...."
+    
+    # Test the proxy by calling a website and checking the status
+    HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$IP:$PORT -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
+    
+    # Check if the status code is 200 (OK)
     if [ "$HTTP_STATUS" -eq 200 ]; then
         echo -e " \033[32mWorking\033[0m"
     else
@@ -117,48 +118,54 @@ test_proxy() {
     fi
 }
 
-# Function to back up all proxy data
-backup_proxies() {
-    echo "Backing up all proxies..."
-    cp "$SAVED_PROXIES_FILE" "$BACKUP_FILE"
-    echo "Backup saved to $BACKUP_FILE"
-}
-
-# Function to restore proxy data from backup
-restore_proxies() {
-    if [ -f "$BACKUP_FILE" ]; then
-        cp "$BACKUP_FILE" "$SAVED_PROXIES_FILE"
-        echo "Restored proxy data from backup."
-    else
-        echo "Backup file not found. No data to restore."
-    fi
-}
-
-# Function to replace an existing proxy
-replacement() {
-    echo "Available Proxies:"
+# Function to replace validity of an existing proxy
+replace_validity() {
+    # Display all saved proxies
+    echo "Existing Proxies:"
     cat "$SAVED_PROXIES_FILE"
-    read -p "Enter the username of the proxy you want to replace: " old_username
 
-    # Ask for new credentials
-    read -p "Enter new username for Proxy: " new_username
-    read -p "Enter new password for Proxy: " new_password
-    read -p "How many days do you want the proxy to remain valid? " validity
+    # Ask for the username of the proxy to modify
+    read -p "Enter the username of the proxy whose validity you want to change: " username_to_modify
 
-    # Replace the old proxy in Squid passwd file
-    htpasswd -b /etc/squid/passwd $new_username $new_password
-    sed -i "/$old_username/d" "$SAVED_PROXIES_FILE"
-    
-    # Log the new proxy with USERNAME, PASSWORD, VALIDITY
-    echo "$new_username:$new_password:$validity" >> "$SAVED_PROXIES_FILE"
+    # Check if the username exists in the saved proxies file
+    if ! grep -q "$username_to_modify" "$SAVED_PROXIES_FILE"; then
+        echo "ERROR: Proxy with username $username_to_modify does not exist."
+        return
+    fi
 
-    # Update proxy log
-    echo "Proxy replaced with Username: $new_username, Password: $new_password, Validity: $validity days" >> "$LOG_FILE"
+    # Ask for new validity period (between 1 and 31 days)
+    read -p "Enter new validity (1-31 days) for Proxy $username_to_modify: " new_validity
 
-    systemctl reload squid
-    echo "Proxy for user $old_username replaced with $new_username."
+    # Validate the input to ensure the validity is within 1 to 31 days
+    if [[ ! $new_validity =~ ^[0-9]+$ ]] || [ "$new_validity" -lt 1 ] || [ "$new_validity" -gt 31 ]; then
+        echo "ERROR: Invalid validity period. It must be between 1 and 31 days. Exiting."
+        return
+    fi
 
-    # After replacement, show the menu again
+    # Create a new proxy with the modified validity
+    # Fetch the username and password from the existing proxy data
+    existing_proxy_data=$(grep "$username_to_modify" "$SAVED_PROXIES_FILE")
+    if [[ ! -z "$existing_proxy_data" ]]; then
+        USERNAME=$(echo $existing_proxy_data | cut -d: -f1)
+        PASSWORD=$(echo $existing_proxy_data | cut -d: -f2)
+
+        # Generate a random IP address (as placeholder, replace it with actual IP)
+        IP="139.84.209.176"
+        PORT="3128"
+
+        # Log the new proxy with the updated validity
+        echo "$IP:$PORT:$USERNAME:$PASSWORD" >> "$LOG_FILE"
+        echo "$USERNAME:$PASSWORD:$new_validity" >> "$SAVED_PROXIES_FILE"
+
+        # Test the proxy by calling a website to confirm it's working
+        sleep 3
+        test_proxy "$IP" "$PORT" "$USERNAME" "$PASSWORD"
+
+        # Confirm new proxy creation
+        echo "Created a new proxy with updated validity: $new_validity days."
+    fi
+
+    # Show the menu again
     show_menu
 }
 
@@ -185,7 +192,6 @@ main() {
     echo "Choose an option to proceed:"
     echo "1) Show Menu"
     echo "2) Create Proxy"
-
     read -p "Enter 1 to Show Menu or 2 to Create Proxy: " action
     if [ "$action" -eq 1 ]; then
         show_menu
