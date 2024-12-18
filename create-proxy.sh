@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Simple Proxy Maker
+# Simple Proxy Maker with Dynamic IP
 ############################################################
 
 LOG_FILE="/root/Proxy.txt"
@@ -32,6 +32,12 @@ create_proxy() {
     # Set validity to 31 days for all proxies
     validity=31
 
+    # Ask the user for the IP address (use the server's internal IP if empty)
+    read -p "Enter the proxy IP address (press Enter to use the server's internal IP): " IP
+    if [ -z "$IP" ]; then
+        IP=$(hostname -I | awk '{print $1}')  # Use internal IP if the user presses Enter without input
+    fi
+
     # Loop to create the specified number of proxies
     for ((i=1; i<=proxy_count; i++)); do
         # Ask for custom username and password or generate random ones
@@ -52,8 +58,7 @@ create_proxy() {
             read -p "Enter password for Proxy $i: " PASSWORD
         fi
 
-        # Generate a random IP address (as placeholder, replace it with actual IP)
-        IP="139.84.209.176"
+        # Generate a random port (or use a fixed one)
         PORT="3128"
 
         # Log the proxy in the specified format: IP:PORT:USERNAME:PASSWORD
