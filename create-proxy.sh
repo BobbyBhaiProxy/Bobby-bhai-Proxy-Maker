@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ############################################################
-# Bobby Bhai Proxy Maker with Multiple IP Support
+# Simple Proxy Maker
 ############################################################
 
 LOG_FILE="/root/Proxy.txt"
@@ -13,31 +13,16 @@ if [ "$(whoami)" != "root" ]; then
     exit 1
 fi
 
-# Function to display the menu
-show_menu() {
-    echo "1) Create Proxy - Create New Proxy"
-    read -p "Select an option by entering 1: " option
-
-    case $option in
-        1)
-            create_proxy
-            ;;
-        *)
-            echo "Invalid option. Exiting."
-            ;;
-    esac
-}
-
 # Function to create new proxies
 create_proxy() {
-    # Ensure we don't exceed 3 proxies at once
+    # Ensure we don't exceed 3 proxies
     proxy_count=$(grep -c "Proxy" "$LOG_FILE")
     if [ "$proxy_count" -ge 3 ]; then
         echo "ERROR: Maximum of 3 proxies allowed at once. Cannot create more."
         exit 1
     fi
 
-    # Ask how many proxies the user wants to create (set to 2 for testing)
+    # Ask how many proxies the user wants to create (limit to 3)
     read -p "How many proxies do you want to create? " proxy_count
     if [ "$proxy_count" -le 0 ] || [ "$proxy_count" -gt 3 ]; then
         echo "ERROR: You can only create between 1 and 3 proxies at a time. Exiting."
@@ -111,10 +96,10 @@ test_proxy() {
     fi
 }
 
-# Main function to show menu and create proxies
+# Main function to create proxies
 main() {
-    # Show the menu
-    show_menu
+    # Run the proxy creation
+    create_proxy
 }
 
 # Run the main function
