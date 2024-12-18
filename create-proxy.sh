@@ -37,7 +37,7 @@ create_proxy() {
     # Set validity to 31 days for all proxies
     validity=31
 
-    # Get the server's internal IP address
+    # Get the server's internal IP address (no user input)
     IP=$(hostname -I | awk '{print $1}')
 
     # Ask for custom username and password once
