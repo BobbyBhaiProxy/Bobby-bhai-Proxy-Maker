@@ -7,6 +7,11 @@
 LOG_FILE="/root/Proxy.txt"
 SAVED_PROXIES_FILE="/root/saved_proxies.txt"
 
+# Ensure log file exists
+if [ ! -f "$LOG_FILE" ]; then
+    touch "$LOG_FILE"
+fi
+
 # Check if the script is running as root
 if [ "$(whoami)" != "root" ]; then
     echo "ERROR: You need to run the script as root or add sudo before the command."
@@ -18,36 +23,33 @@ create_proxy() {
     # Ensure we don't exceed 3 proxies
     proxy_count=$(grep -c "Proxy" "$LOG_FILE")
     if [ "$proxy_count" -ge 3 ]; then
-        echo "ERROR: Maximum of 3 proxies allowed at once. Cannot create more."
+        echo "Maximum of 3 proxies allowed at once. Cannot create more."
         exit 1
     fi
 
     # Ask how many proxies the user wants to create (limit to 3)
     read -p "How many proxies do you want to create? " proxy_count
     if [ "$proxy_count" -le 0 ] || [ "$proxy_count" -gt 3 ]; then
-        echo "ERROR: You can only create between 1 and 3 proxies at a time. Exiting."
+        echo "You can only create between 1 and 3 proxies at a time. Exiting."
         exit 1
     fi
 
     # Set validity to 31 days for all proxies
     validity=31
 
-    # Ask the user for the IP address (use the server's internal IP if empty)
-    read -p "Enter the proxy IP address (press Enter to use the server's internal IP): " IP
-    if [ -z "$IP" ]; then
-        IP=$(hostname -I | awk '{print $1}')  # Use internal IP if the user presses Enter without input
+    # Get the server's internal IP address
+    IP=$(hostname -I | awk '{print $1}')
+
+    # Ask for custom username and password once
+    read -p "Do you want to use a custom username and password for proxies? (yes/no): " custom_choice
+    if [[ "$custom_choice" == "yes" ]]; then
+        use_custom=1
+    else
+        use_custom=0
     fi
 
     # Loop to create the specified number of proxies
     for ((i=1; i<=proxy_count; i++)); do
-        # Ask for custom username and password or generate random ones
-        read -p "Do you want to use a custom username and password for proxy $i? (yes/no): " custom_choice
-        if [[ "$custom_choice" == "yes" ]]; then
-            use_custom=1
-        else
-            use_custom=0
-        fi
-
         # Generate a random username and password if custom is not selected
         if [ "$use_custom" -eq 0 ]; then
             USERNAME=$(generate_random_string 8)
@@ -70,7 +72,6 @@ create_proxy() {
         # Test the proxy by calling a website to confirm it's working
         sleep 3
         test_proxy "$IP" "$PORT" "$USERNAME" "$PASSWORD"
-
     done
 }
 
