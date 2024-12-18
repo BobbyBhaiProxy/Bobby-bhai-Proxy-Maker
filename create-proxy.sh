@@ -39,11 +39,14 @@ create_proxy() {
 
     # Get the server's internal IP address (no user input)
     IP=$(hostname -I | awk '{print $1}')
+    echo "Using internal server IP: $IP"
 
-    # Ask for custom username and password once
-    read -p "Do you want to use a custom username and password for proxies? (yes/no): " custom_choice
+    # Ask for custom username and password once (applies to all proxies)
+    read -p "Do you want to use a custom username and password for all proxies? (yes/no): " custom_choice
     if [[ "$custom_choice" == "yes" ]]; then
         use_custom=1
+        read -p "Enter username for all proxies: " USERNAME
+        read -p "Enter password for all proxies: " PASSWORD
     else
         use_custom=0
     fi
@@ -55,9 +58,6 @@ create_proxy() {
             USERNAME=$(generate_random_string 8)
             PASSWORD=$(generate_random_string 12)
             echo "Generated Proxy User with Username: $USERNAME, Password: $PASSWORD"
-        else
-            read -p "Enter username for Proxy $i: " USERNAME
-            read -p "Enter password for Proxy $i: " PASSWORD
         fi
 
         # Generate a random port (or use a fixed one)
@@ -94,6 +94,9 @@ test_proxy() {
     # Test the proxy by calling a website and checking the status
     HTTP_STATUS=$(curl -x http://$USERNAME:$PASSWORD@$IP:$PORT -s -o /dev/null --max-time 5 -w "%{http_code}" https://www.irctc.co.in)
     
+    # Debugging output
+    echo "HTTP Status: $HTTP_STATUS"
+
     # Check if the status code is 200 (OK)
     if [ "$HTTP_STATUS" -eq 200 ]; then
         echo -e " \033[32mWorking\033[0m"
