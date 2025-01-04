@@ -4,9 +4,9 @@
 # Bobby Bhai Proxy Maker - Fully Automated Edition
 ############################################################
 
-CONFIG_FILE="/root/proxy_mode.conf"
 LOG_FILE="/root/Proxy.txt"
 DEFAULT_PORT=3128
+IRCTC_URL="https://www.irctc.co.in/"
 
 # Check if the script is running as root
 if [ "$(whoami)" != "root" ]; then
@@ -16,64 +16,50 @@ fi
 
 # Function to install Squid
 install_squid() {
-    echo "Checking if Squid is installed..."
-    if ! command -v squid >/dev/null 2>&1; then
-        echo "Squid is not installed. Installing now..."
-        apt-get update -y && apt-get install squid apache2-utils -y
-        if [ $? -eq 0 ]; then
-            echo "Squid installed successfully."
-        else
-            echo "ERROR: Failed to install Squid. Please check your system settings."
-            exit 1
-        fi
+    echo "Installing Squid Proxy Server..."
+    apt-get update -y && apt-get install squid apache2-utils curl -y
+    if [ $? -eq 0 ]; then
+        echo "Squid installed successfully."
     else
-        echo "Squid is already installed."
-    fi
-}
-
-# Detect all server IP addresses
-detect_ips() {
-    SERVER_IPS=$(hostname -I)
-    if [ -z "$SERVER_IPS" ]; then
-        echo "ERROR: Unable to detect server IPs. Please check your network configuration."
+        echo "ERROR: Failed to install Squid. Please check your system settings."
         exit 1
-    else
-        echo "Detected Server IPs: $SERVER_IPS"
     fi
 }
 
-# Function to generate a strong random password
-generate_password() {
-    tr -dc 'A-Za-z0-9@#%^&*()' </dev/urandom | head -c 16
+# Generate a random username and password
+generate_credentials() {
+    username="bobby_$(tr -dc 'a-z0-9' </dev/urandom | head -c 8)"
+    password=$(tr -dc 'A-Za-z0-9@#%^&*()' </dev/urandom | head -c 16)
+    echo "$username:$password"
 }
 
-# Function to create a proxy for a specific IP
+# Create a single proxy
 create_proxy() {
-    local ip=$1
-    local username="bobby_$(tr -dc 'a-z0-9' </dev/urandom | head -c 8)"
-    local password=$(generate_password)
+    credentials=$(generate_credentials)
+    username=$(echo "$credentials" | cut -d: -f1)
+    password=$(echo "$credentials" | cut -d: -f2)
 
-    echo "Creating proxy for IP: $ip on port $DEFAULT_PORT with username: $username"
+    echo "Creating proxy with username: $username and password: $password"
 
-    # Add user credentials to Squid
+    # Add user to Squid
     if [ -f /etc/squid/passwd ]; then
-        /usr/bin/htpasswd -b /etc/squid/passwd "$username" "$password"
+        htpasswd -b /etc/squid/passwd "$username" "$password"
     else
-        /usr/bin/htpasswd -b -c /etc/squid/passwd "$username" "$password"
+        htpasswd -b -c /etc/squid/passwd "$username" "$password"
     fi
 
-    # Log the credentials
-    echo "$ip:$DEFAULT_PORT:$username:$password" >>"$LOG_FILE"
+    # Log the proxy details
+    echo "127.0.0.1:$DEFAULT_PORT:$username:$password" >>"$LOG_FILE"
 }
 
-# Function to configure Squid for detected IPs
+# Configure Squid with authentication and settings
 configure_squid() {
-    echo "Configuring Squid with detected IPs..."
+    echo "Configuring Squid..."
 
-    # Backup original Squid configuration
+    # Backup existing configuration
     cp /etc/squid/squid.conf /etc/squid/squid.conf.bak
 
-    # Generate new Squid configuration
+    # Create a minimal configuration
     cat >/etc/squid/squid.conf <<EOL
 http_port $DEFAULT_PORT
 auth_param basic program /usr/lib/squid/basic_ncsa_auth /etc/squid/passwd
@@ -83,34 +69,54 @@ auth_param basic credentialsttl 2 hours
 acl authenticated proxy_auth REQUIRED
 http_access allow authenticated
 http_access deny all
+cache deny all
 EOL
 
-    for ip in $SERVER_IPS; do
-        echo "acl localnet src $ip" >>/etc/squid/squid.conf
-    done
-
-    # Restart Squid to apply changes
+    # Restart Squid to apply the configuration
     systemctl restart squid
     echo "Squid configuration applied and service restarted."
 }
 
-# Main function to handle everything
-main() {
-    echo "Starting Bobby Bhai Proxy Maker..."
-    install_squid
-    detect_ips
+# Test the proxy with IRCTC
+test_proxy() {
+    echo "Testing the proxy with IRCTC..."
 
-    # Create proxies for all detected IPs
-    for ip in $SERVER_IPS; do
-        create_proxy "$ip"
-    done
+    credentials=$(head -n 1 "$LOG_FILE")
+    username=$(echo "$credentials" | cut -d: -f3)
+    password=$(echo "$credentials" | cut -d: -f4)
 
-    # Configure and restart Squid
-    configure_squid
-
-    echo "All proxies have been created successfully!"
-    echo "Proxy credentials have been saved to $LOG_FILE."
+    # Test proxy
+    curl -x "http://127.0.0.1:$DEFAULT_PORT" -U "$username:$password" -I "$IRCTC_URL" -m 10 2>/dev/null | grep "HTTP/"
+    if [ $? -eq 0 ]; then
+        echo "Proxy is working with IRCTC!"
+    else
+        echo "Proxy test failed with IRCTC. Please check your configuration."
+    fi
 }
 
-# Execute the main function
+# Main function to handle everything
+main() {
+    echo "############################################################"
+    echo " Bobby Bhai Proxy Maker - Fully Automated Edition"
+    echo "############################################################"
+
+    # Install Squid
+    install_squid
+
+    # Create the proxy
+    create_proxy
+
+    # Configure Squid
+    configure_squid
+
+    # Test the proxy
+    test_proxy
+
+    # Display proxy details
+    echo "Proxy has been successfully created!"
+    echo "Details saved in: $LOG_FILE"
+    cat "$LOG_FILE"
+}
+
+# Run the script
 main
